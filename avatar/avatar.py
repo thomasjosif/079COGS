@@ -19,7 +19,7 @@ def process_avatar(url):
         return new_url
 
 
-class Avatar:
+class Avatar(commands.Cog):
     """Get user's avatar URL."""
 
     @commands.command()

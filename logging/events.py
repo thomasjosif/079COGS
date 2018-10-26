@@ -206,13 +206,6 @@ class LoggingEvents:
                         embed.set_author(name=_('Channel #{0.name} renamed to #{1.name}').format(before, after))
                     embed.set_footer(text='{}'.format(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
                     await self.core._send_message_to_channel(guild, embed=embed)
-                if not isinstance(channel, discord.VoiceChannel) and not isinstance(channel, discord.CategoryChannel):
-                    if before.topic != after.topic:
-                        embed = discord.Embed(color=self.blue)
-                        embed.set_author(name=_('Topic of #{1.name} changed from \'{0.topic}\' '
-                                                ' to \'{1.topic}\'').format(before, after))
-                        embed.set_footer(text='{}'.format(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
-                        await self.core._send_message_to_channel(guild, embed=embed)
                 if before.position != after.position:
                     if isinstance(channel, discord.CategoryChannel):
                         embed = discord.Embed(color=self.blue)

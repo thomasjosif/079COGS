@@ -3,7 +3,7 @@ from redbot.core.config import Config
 from redbot.core import commands, checks
 
 
-class StickyRoles:
+class StickyRoles(commands.Cog):
 
     __author__ = "mikeshardmind"
     __version__ = "1.0.0b"

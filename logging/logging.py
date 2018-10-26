@@ -6,6 +6,8 @@ from redbot.core.i18n import Translator
 from .core import LoggingCore
 from .events import LoggingEvents
 
+BaseCog = getattr(commands, "Cog", object)
+
 _ = Translator('Logging', __file__)
 
 # TODO:
@@ -13,7 +15,7 @@ _ = Translator('Logging', __file__)
 # A way to show all settings (needs a complete rework, removed for now)
 
 
-class Logging(LoggingEvents):
+class Logging(LoggingEvents, BaseCog):
     def __init__(self, bot):
         self.bot = bot
         self.core = LoggingCore(bot)

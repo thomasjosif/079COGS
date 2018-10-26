@@ -12,7 +12,7 @@ import re
 import unicodedata
 
 
-class Retrosign:
+class Retrosign(commands.Cog):
     """Make an 80s retro sign. Originally by Anismash"""
     def __init__(self, bot):
         self.bot = bot

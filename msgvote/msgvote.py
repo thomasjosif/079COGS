@@ -8,7 +8,7 @@ from redbot.core import Config, checks, commands
 # It started as a joke, and people actualy use it! Who knew?
 
 
-class MsgVote:
+class MsgVote(commands.Cog):
 
     """Turn Discord channels into Reddit-like threads"""
 
@@ -159,13 +159,13 @@ class MsgVote:
             # Implement a non-spammy way to alert users in future
             pass
 
-    async def on_reaction_add(self, reaction):
-        if reaction.user_id == self.bot.user.id:
+    async def on_reaction_add(self, reaction, user):
+        if user.id == self.bot.user.id:
             return
         await self.count_votes(reaction)
 
-    async def on_reaction_remove(self, reaction):
-        if reaction.user_id == self.bot.user.id:
+    async def on_reaction_remove(self, reaction, user):
+        if user.id == self.bot.user.id:
             return
         await self.count_votes(reaction)
 
