@@ -5,9 +5,10 @@ from redbot.core.utils.chat_formatting import pagify
 import platform, asyncio, string, operator, random, textwrap
 import os, re, aiohttp
 import math
+import redbot.cogs.bank
 from redbot.core.utils.settings import Settings
 from redbot.core.utils.dataIO import fileIO
-from redbot.core import checks
+from redbot.core import checks, bank
 try:
     import pymongo
     from pymongo import MongoClient
@@ -92,7 +93,7 @@ class Leveler(commands.Cog):
 
         # check if disabled
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         # no cooldown for text only
@@ -123,15 +124,11 @@ class Leveler(commands.Cog):
         em.add_field(name="Reps:", value= userinfo["rep"])
         em.add_field(name="Global Rank:", value = '#{}'.format(await self._find_global_rank(user)))
         em.add_field(name="guild Rank:", value = '#{}'.format(await self._find_guild_rank(user, guild)))
-        em.add_field(name="guild Level:", value = format(userinfo["guilds"][str(guild.id)]["level"]))
+        em.add_field(name="guild Level:", value = format(userinfo["servers"][str(guild.id)]["level"]))
         em.add_field(name="Total Exp:", value = userinfo["total_exp"])
         em.add_field(name="guild Exp:", value = await self._find_guild_exp(user, guild))
         try:
-            bank = self.bot.get_cog('Economy').bank
-            if bank.account_exists(user):
-                credits = bank.get_balance(user)
-            else:
-                credits = 0
+            credits = await bank.get_balance(user)
         except:
             credits = 0
         em.add_field(name="Credits: ", value = "${}".format(credits))
@@ -157,7 +154,7 @@ class Leveler(commands.Cog):
 
         # check if disabled
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         # no cooldown for text only
@@ -180,7 +177,7 @@ class Leveler(commands.Cog):
         em = discord.Embed(description='', colour=user.colour)
         em.add_field(name="guild Rank", value = '#{}'.format(await self._find_guild_rank(user, guild)))
         em.add_field(name="Reps", value = userinfo["rep"])
-        em.add_field(name="guild Level", value = userinfo["guilds"][str(guild.id)]["level"])
+        em.add_field(name="guild Level", value = userinfo["servers"][str(guild.id)]["level"])
         em.add_field(name="guild Exp", value = await self._find_guild_exp(user, guild))
         em.set_author(name="Rank and Statistics for {}".format(user.name), url = user.avatar_url)
         em.set_thumbnail(url=user.avatar_url)
@@ -201,7 +198,7 @@ class Leveler(commands.Cog):
         user = ctx.message.author
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         users = []
@@ -241,7 +238,7 @@ class Leveler(commands.Cog):
             title = "Rep Leaderboard for {}\n".format(guild.name)
             for userinfo in db.users.find({}):
                 userid = userinfo["user_id"]
-                if "guilds" in userinfo and str(guild.id) in userinfo["guilds"]:
+                if "servers" in userinfo and str(guild.id) in userinfo["servers"]:
                     try:
                         users.append((userinfo["username"], userinfo["rep"]))
                     except:
@@ -260,11 +257,11 @@ class Leveler(commands.Cog):
             for userinfo in db.users.find({}):
                 try:
                     userid = userinfo["user_id"]
-                    if "guilds" in userinfo and str(guild.id) in userinfo["guilds"]:
+                    if "servers" in userinfo and str(guild.id) in userinfo["servers"]:
                         guild_exp = 0
-                        for i in range(userinfo["guilds"][str(guild.id)]["level"]):
+                        for i in range(userinfo["servers"][str(guild.id)]["level"]):
                             guild_exp += self._required_exp(i)
-                        guild_exp +=  userinfo["guilds"][str(guild.id)]["current_exp"]
+                        guild_exp +=  userinfo["servers"][str(guild.id)]["current_exp"]
                         try:
                             users.append((userinfo["username"], guild_exp))
                         except:
@@ -287,7 +284,7 @@ class Leveler(commands.Cog):
                 if page >= 1 and int(option) <= pages:
                     page = int(str(option))
                 else:
-                    await self.bot.say("**Please enter a valid page number! (1 - {})**".format(str(pages)))
+                    await ctx.send("**Please enter a valid page number! (1 - {})**".format(str(pages)))
                     return
                 break
 
@@ -316,7 +313,7 @@ class Leveler(commands.Cog):
         em.set_author(name=title, icon_url = icon_url)
         em.description = msg
 
-        await self.bot.say(embed = em)
+        await ctx.send(embed = em)
 
     @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.command(pass_context=True, no_pm=True)
@@ -329,17 +326,17 @@ class Leveler(commands.Cog):
         await self._create_user(org_user, guild)
         if user:
             await self._create_user(user, guild)
-        org_userinfo = db.users.find_one({'user_id':org_str(user.id)})
+        org_userinfo = db.users.find_one({'user_id':str(org_user.id)})
         curr_time = time.time()
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
-        if user and str(user.id) == org_str(user.id):
-            await self.bot.say("**You can't give a rep to yourself!**")
+        if user and str(user.id) == str(org_user.id):
+            await ctx.send("**You can't give a rep to yourself!**")
             return
         if user and user.bot:
-            await self.bot.say("**You can't give a rep to a bot!**")
+            await ctx.send("**You can't give a rep to a bot!**")
             return
         if "rep_block" not in org_userinfo:
             org_userinfo["rep_block"] = 0
@@ -347,23 +344,23 @@ class Leveler(commands.Cog):
         delta = float(curr_time) - float(org_userinfo["rep_block"])
         if user and delta >= 43200.0 and delta>0:
             userinfo = db.users.find_one({'user_id':str(str(user.id))})
-            db.users.update_one({'user_id':org_str(user.id)}, {'$set':{
+            db.users.update_one({'user_id':str(org_user.id)}, {'$set':{
                     "rep_block": curr_time,
                 }})
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
                     "rep":  userinfo["rep"] + 1,
                 }})
-            await self.bot.say("**You have just given {} a reputation point!**".format(self._is_mention(user)))
+            await ctx.send("**You have just given {} a reputation point!**".format(self._is_mention(user)))
         else:
             # calulate time left
             seconds = 43200 - delta
             if seconds < 0:
-                await self.bot.say("**You can give a rep!**")
+                await ctx.send("**You can give a rep!**")
                 return
 
             m, s = divmod(seconds, 60)
             h, m = divmod(m, 60)
-            await self.bot.say("**You need to wait {} hours, {} minutes, and {} seconds until you can give reputation again!**".format(int(h), int(m), int(s)))
+            await ctx.send("**You need to wait {} hours, {} minutes, and {} seconds until you can give reputation again!**".format(int(h), int(m), int(s)))
 
     @commands.command(pass_context=True, no_pm=True)
     async def lvlinfo(self, ctx, user : discord.Member = None):
@@ -377,7 +374,7 @@ class Leveler(commands.Cog):
         guild = ctx.message.guild
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         # creates user if doesn't exist
@@ -386,11 +383,11 @@ class Leveler(commands.Cog):
         msg += "Name: {}\n".format(user.name)
         msg += "Title: {}\n".format(userinfo["title"])
         msg += "Reps: {}\n".format(userinfo["rep"])
-        msg += "guild Level: {}\n".format(userinfo["guilds"][str(guild.id)]["level"])
+        msg += "guild Level: {}\n".format(userinfo["servers"][str(guild.id)]["level"])
         total_guild_exp = 0
-        for i in range(userinfo["guilds"][str(guild.id)]["level"]):
+        for i in range(userinfo["servers"][str(guild.id)]["level"]):
             total_guild_exp += self._required_exp(i)
-        total_guild_exp += userinfo["guilds"][str(guild.id)]["current_exp"]
+        total_guild_exp += userinfo["servers"][str(guild.id)]["current_exp"]
         msg += "guild Exp: {}\n".format(total_guild_exp)
         msg += "Total Exp: {}\n".format(userinfo["total_exp"])
         msg += "Info: {}\n".format(userinfo["info"])
@@ -416,7 +413,7 @@ class Leveler(commands.Cog):
 
         em = discord.Embed(description=msg, colour=user.colour)
         em.set_author(name="Profile Information for {}".format(user.name), icon_url = user.avatar_url)
-        await self.bot.say(embed = em)
+        await ctx.send(embed = em)
 
     def _rgb_to_hex(self, rgb):
         rgb = tuple(rgb[:3])
@@ -426,7 +423,7 @@ class Leveler(commands.Cog):
     async def lvlset(self, ctx):
         """Profile Configuration Options"""
         if ctx.invoked_subcommand is None:
-            await ctx.send_help
+            
             return
 
     @lvlset.group(name = "profile", pass_context=True)
@@ -434,7 +431,7 @@ class Leveler(commands.Cog):
         """Profile options"""
         if ctx.invoked_subcommand is None or \
                 isinstance(ctx.invoked_subcommand, commands.Group):
-            await ctx.send_help
+            
             return
 
     @lvlset.group(name = "rank", pass_context=True)
@@ -442,7 +439,7 @@ class Leveler(commands.Cog):
         """Rank options"""
         if ctx.invoked_subcommand is None or \
                 isinstance(ctx.invoked_subcommand, commands.Group):
-            await ctx.send_help
+            
             return
 
     @lvlset.group(name = "levelup", pass_context=True)
@@ -450,7 +447,7 @@ class Leveler(commands.Cog):
         """Level-Up options"""
         if ctx.invoked_subcommand is None or \
                 isinstance(ctx.invoked_subcommand, commands.Group):
-            await ctx.send_help
+            
             return
 
     @profileset.command(name = "color", pass_context=True, no_pm=True)
@@ -471,11 +468,11 @@ class Leveler(commands.Cog):
         default_a = 200
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
         # get correct section for db query
@@ -490,7 +487,7 @@ class Leveler(commands.Cog):
         elif section == "all":
             section_name = "all"
         else:
-            await self.bot.say("**Not a valid section. (rep, exp, badge, info, all)**")
+            await ctx.send("**Not a valid section. (rep, exp, badge, info, all)**")
             return
 
         # get correct color choice
@@ -528,7 +525,7 @@ class Leveler(commands.Cog):
         elif self._is_hex(color):
             set_color = [self._hex_to_rgb(color, default_a)]
         else:
-            await self.bot.say("**Not a valid color. (default, hex, white, auto)**")
+            await ctx.send("**Not a valid color. (default, hex, white, auto)**")
             return
 
         if section == "all":
@@ -553,13 +550,13 @@ class Leveler(commands.Cog):
                         "badge_col_color": set_color[2],
                         "profile_info_color": set_color[3]
                     }})
-            await self.bot.say("**Colors for profile set.**")
+            await ctx.send("**Colors for profile set.**")
         else:
             print("update one")
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
                     section_name: set_color[0]
                 }})
-            await self.bot.say("**Color for profile {} set.**".format(section))
+            await ctx.send("**Color for profile {} set.**".format(section))
 
     @rankset.command(name = "color", pass_context=True, no_pm=True)
     async def rankcolors(self, ctx, section:str, color:str = None):
@@ -577,11 +574,11 @@ class Leveler(commands.Cog):
         default_a = 200
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
         # get correct section for db query
@@ -592,7 +589,7 @@ class Leveler(commands.Cog):
         elif section == "all":
             section_name = "all"
         else:
-            await self.bot.say("**Not a valid section. (exp, info, all)**")
+            await ctx.send("**Not a valid section. (exp, info, all)**")
             return
 
         # get correct color choice
@@ -621,7 +618,7 @@ class Leveler(commands.Cog):
         elif self._is_hex(color):
             set_color = [self._hex_to_rgb(color, default_a)]
         else:
-            await self.bot.say("**Not a valid color. (default, hex, white, auto)**")
+            await ctx.send("**Not a valid color. (default, hex, white, auto)**")
             return
 
         if section == "all":
@@ -640,12 +637,12 @@ class Leveler(commands.Cog):
                         "rank_exp_color": set_color[0],
                         "rank_info_color": set_color[1]
                     }})
-            await self.bot.say("**Colors for rank set.**")
+            await ctx.send("**Colors for rank set.**")
         else:
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
                     section_name: set_color[0]
                 }})
-            await self.bot.say("**Color for rank {} set.**".format(section))
+            await ctx.send("**Color for rank {} set.**".format(section))
 
     @levelupset.command(name = "color", pass_context=True, no_pm=True)
     async def levelupcolors(self, ctx, section:str, color:str = None):
@@ -662,18 +659,18 @@ class Leveler(commands.Cog):
         default_a = 200
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
         # get correct section for db query
         if section == "info":
             section_name = "levelup_info_color"
         else:
-            await self.bot.say("**Not a valid section. (info)**")
+            await ctx.send("**Not a valid section. (info)**")
             return
 
         # get correct color choice
@@ -693,19 +690,19 @@ class Leveler(commands.Cog):
         elif self._is_hex(color):
             set_color = [self._hex_to_rgb(color, default_a)]
         else:
-            await self.bot.say("**Not a valid color. (default, hex, white, auto)**")
+            await ctx.send("**Not a valid color. (default, hex, white, auto)**")
             return
 
         db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
                 section_name: set_color[0]
             }})
-        await self.bot.say("**Color for level-up {} set.**".format(section))
+        await ctx.send("**Color for level-up {} set.**".format(section))
 
     # uses k-means algorithm to find color from bg, rank is abundance of color, descending
     async def _auto_color(self, url:str, ranks):
         phrases = ["Calculating colors..."] # in case I want more
         #try:
-        await self.bot.say("**{}**".format(random.choice(phrases)))
+        await ctx.send("**{}**".format(random.choice(phrases)))
         clusters = 10
 
         async with self.session.get(url) as r:
@@ -740,7 +737,7 @@ class Leveler(commands.Cog):
             colors.append(''.join(format(c, '02x') for c in peak))
         return colors # returns array
         #except:
-            #await self.bot.say("```Error or no scipy. Install scipy doing 'pip3 install numpy' and 'pip3 install scipy' or read here: https://github.com/AznStevy/Maybe-Useful-Cogs/blob/master/README.md```")
+            #await ctx.send("```Error or no scipy. Install scipy doing 'pip3 install numpy' and 'pip3 install scipy' or read here: https://github.com/AznStevy/Maybe-Useful-Cogs/blob/master/README.md```")
 
     # converts hex to rgb
     def _hex_to_rgb(self, hex_num: str, a:int):
@@ -780,14 +777,14 @@ class Leveler(commands.Cog):
         max_char = 150
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if len(info) < max_char:
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"info": info}})
-            await self.bot.say("**Your info section has been succesfully set!**")
+            await ctx.send("**Your info section has been succesfully set!**")
         else:
-            await self.bot.say("**Your description has too many characters! Must be <{}**".format(max_char))
+            await ctx.send("**Your description has too many characters! Must be <{}**".format(max_char))
 
     @levelupset.command(name = "bg", pass_context=True, no_pm=True)
     async def levelbg(self, ctx, *, image_name:str):
@@ -799,20 +796,20 @@ class Leveler(commands.Cog):
         userinfo = db.users.find_one({'user_id':str(str(user.id))})
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
 
         if image_name in self.backgrounds["levelup"].keys():
             if await self._process_purchase(ctx):
                 db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"levelup_background": self.backgrounds["levelup"][image_name]}})
-                await self.bot.say("**Your new level-up background has been succesfully set!**")
+                await ctx.send("**Your new level-up background has been succesfully set!**")
         else:
-            await self.bot.say("That is not a valid bg. See available bgs at `{}backgrounds levelup`".format(prefix[0]))
+            await ctx.send("That is not a valid bg. See available bgs at `{}backgrounds levelup`".format(prefix[0]))
 
     @profileset.command(name = "bg", pass_context=True, no_pm=True)
     async def profilebg(self, ctx, *, image_name:str):
@@ -824,20 +821,20 @@ class Leveler(commands.Cog):
         userinfo = db.users.find_one({'user_id':str(str(user.id))})
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
 
         if image_name in self.backgrounds["profile"].keys():
             if await self._process_purchase(ctx):
                 db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"profile_background": self.backgrounds["profile"][image_name]}})
-                await self.bot.say("**Your new profile background has been succesfully set!**")
+                await ctx.send("**Your new profile background has been succesfully set!**")
         else:
-            await self.bot.say("That is not a valid bg. See available bgs at `{}backgrounds profile`".format(prefix[0]))
+            await ctx.send("That is not a valid bg. See available bgs at `{}backgrounds profile`".format(prefix[0]))
 
     @rankset.command(name = "bg", pass_context=True, no_pm=True)
     async def rankbg(self, ctx, *, image_name:str):
@@ -849,20 +846,20 @@ class Leveler(commands.Cog):
         userinfo = db.users.find_one({'user_id':str(str(user.id))})
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
-            await self.bot.say("**Text-only commands allowed.**")
+            await ctx.send("**Text-only commands allowed.**")
             return
 
 
         if image_name in self.backgrounds["rank"].keys():
             if await self._process_purchase(ctx):
                 db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"rank_background": self.backgrounds["rank"][image_name]}})
-                await self.bot.say("**Your new rank background has been succesfully set!**")
+                await ctx.send("**Your new rank background has been succesfully set!**")
         else:
-            await self.bot.say("That is not a valid bg. See available bgs at `{}backgrounds rank`".format(prefix[0]))
+            await ctx.send("That is not a valid bg. See available bgs at `{}backgrounds rank`".format(prefix[0]))
 
     @profileset.command(pass_context=True, no_pm=True)
     async def title(self, ctx, *, title):
@@ -875,22 +872,22 @@ class Leveler(commands.Cog):
         max_char = 20
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if len(title) < max_char:
             userinfo["title"] = title
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"title": title}})
-            await self.bot.say("**Your title has been succesfully set!**")
+            await ctx.send("**Your title has been succesfully set!**")
         else:
-            await self.bot.say("**Your title has too many characters! Must be <{}**".format(max_char))
+            await ctx.send("**Your title has too many characters! Must be <{}**".format(max_char))
 
     @checks.admin_or_permissions(manage_guild=True)
     @commands.group(pass_context=True)
     async def lvladmin(self, ctx):
         """Admin Toggle Features"""
         if ctx.invoked_subcommand is None:
-            await ctx.send_help
+            
             return
 
     @checks.admin_or_permissions(manage_guild=True)
@@ -934,7 +931,7 @@ class Leveler(commands.Cog):
         msg += "**Channel Locks:** {}\n".format(", ".join(locked_channels))
         em = discord.Embed(description=msg, colour=user.colour)
         em.set_author(name="Settings Overview for {}".format(self.bot.user.name))
-        await self.bot.say(embed = em)
+        await ctx.send(embed = em)
 
     @lvladmin.command(pass_context=True, no_pm=True)
     async def msgcredits(self, ctx, credits:int = 0):
@@ -943,14 +940,14 @@ class Leveler(commands.Cog):
         guild = ctx.message.guild
 
         if credits < 0 or credits > 1000:
-            await self.bot.say("**Please enter a valid number (0 - 1000)**".format(channel.name))
+            await ctx.send("**Please enter a valid number (0 - 1000)**".format(channel.name))
             return
 
         if "msg_credits" not in self.settings.keys():
             self.settings["msg_credits"] = {}
 
         self.settings["msg_credits"][str(guild.id)] = credits
-        await self.bot.say("**Credits per message logged set to `{}`.**".format(str(credits)))
+        await ctx.send("**Credits per message logged set to `{}`.**".format(str(credits)))
 
         fileIO('data/leveler/settings.json', "save", self.settings)
 
@@ -966,13 +963,13 @@ class Leveler(commands.Cog):
         if str(guild.id) in self.settings["lvl_msg_lock"]:
             if channel.id == self.settings["lvl_msg_lock"][str(guild.id)]:
                 del self.settings["lvl_msg_lock"][str(guild.id)]
-                await self.bot.say("**Level-up message lock disabled.**".format(channel.name))
+                await ctx.send("**Level-up message lock disabled.**".format(channel.name))
             else:
                 self.settings["lvl_msg_lock"][str(guild.id)] = channel.id
-                await self.bot.say("**Level-up message lock changed to `#{}`.**".format(channel.name))
+                await ctx.send("**Level-up message lock changed to `#{}`.**".format(channel.name))
         else:
             self.settings["lvl_msg_lock"][str(guild.id)] = channel.id
-            await self.bot.say("**Level-up messages locked to `#{}`**".format(channel.name))
+            await ctx.send("**Level-up messages locked to `#{}`**".format(channel.name))
 
         fileIO('data/leveler/settings.json', "save", self.settings)
 
@@ -981,42 +978,40 @@ class Leveler(commands.Cog):
         guild = ctx.message.guild
 
         try:
-            bank = self.bot.get_cog('Economy').bank
-            if bank.account_exists(user) and self.settings["bg_price"] != 0:
+            if self.settings["bg_price"] != 0:
                 if not bank.can_spend(user, self.settings["bg_price"]):
-                    await self.bot.say("**Insufficient funds. Backgrounds changes cost: ${}**".format(self.settings["bg_price"]))
+                    await ctx.send("**Insufficient funds. Backgrounds changes cost: ${}**".format(self.settings["bg_price"]))
                     return False
                 else:
-                    await self.bot.say('**{}, you are about to buy a background for `{}`. Confirm by typing `yes`.**'.format(self._is_mention(user), self.settings["bg_price"]))
+                    await ctx.send('**{}, you are about to buy a background for `{}`. Confirm by typing `yes`.**'.format(self._is_mention(user), self.settings["bg_price"]))
                     answer = await self.bot.wait_for_message(timeout=15, author=user)
                     if answer is None:
-                        await self.bot.say('**Purchase canceled.**')
+                        await ctx.send('**Purchase canceled.**')
                         return False
                     elif "yes" not in answer.content.lower():
-                        await self.bot.say('**Background not purchased.**')
+                        await ctx.send('**Background not purchased.**')
                         return False
                     else:
                         new_balance = bank.get_balance(user) - self.settings["bg_price"]
-                        bank.set_credits(user, new_balance)
+                        await bank.set_balance(user, new_balance)
                         return True
             else:
                 if self.settings["bg_price"] == 0:
                     return True
                 else:
-                    await self.bot.say("**You don't have an account. Do {}bank register**".format(prefix))
+                    await ctx.send("**You don't have an account. Do {}bank register**".format(prefix))
                     return False
         except:
             if self.settings["bg_price"] == 0:
                 return True
             else:
-                await self.bot.say("**There was an error with economy cog. Fix to allow purchases or set price to $0. Currently ${}**".format(prefix, self.settings["bg_price"]))
+                await ctx.send("**There was an error with economy cog. Fix to allow purchases or set price to $0. Currently ${}**".format(prefix, self.settings["bg_price"]))
                 return False
 
     async def _give_chat_credit(self, user, guild):
         try:
-            bank = self.bot.get_cog('Economy').bank
-            if bank.account_exists(user) and "msg_credits" in self.settings:
-                bank.deposit_credits(user, self.settings["msg_credits"][str(guild.id)])
+            if "msg_credits" in self.settings:
+                await bank.deposit_credits(user, self.settings["msg_credits"][str(guild.id)])
         except:
             pass
 
@@ -1025,10 +1020,10 @@ class Leveler(commands.Cog):
     async def setprice(self, price:int):
         '''Set a price for background changes.'''
         if price < 0:
-            await self.bot.say("**That is not a valid background price.**")
+            await ctx.send("**That is not a valid background price.**")
         else:
             self.settings["bg_price"] = price
-            await self.bot.say("**Background price set to: `{}`!**".format(price))
+            await ctx.send("**Background price set to: `{}`!**".format(price))
             fileIO('data/leveler/settings.json', "save", self.settings)
 
     @checks.is_owner()
@@ -1043,32 +1038,32 @@ class Leveler(commands.Cog):
         userinfo = db.users.find_one({'user_id':str(str(user.id))})
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         if level < 0:
-            await self.bot.say("**Please enter a positive number.**")
+            await ctx.send("**Please enter a positive number.**")
             return
 
         # get rid of old level exp
         old_guild_exp = 0
-        for i in range(userinfo["guilds"][str(guild.id)]["level"]):
+        for i in range(userinfo["servers"][str(guild.id)]["level"]):
             old_guild_exp += self._required_exp(i)
         userinfo["total_exp"] -= old_guild_exp
-        userinfo["total_exp"] -= userinfo["guilds"][str(guild.id)]["current_exp"]
+        userinfo["total_exp"] -= userinfo["servers"][str(guild.id)]["current_exp"]
 
         # add in new exp
         total_exp = self._level_exp(level)
-        userinfo["guilds"][str(guild.id)]["current_exp"] = 0
-        userinfo["guilds"][str(guild.id)]["level"] = level
+        userinfo["servers"][str(guild.id)]["current_exp"] = 0
+        userinfo["servers"][str(guild.id)]["level"] = level
         userinfo["total_exp"] += total_exp
 
         db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
-            "guilds.{}.level".format(str(guild.id)): level,
-            "guilds.{}.current_exp".format(str(guild.id)): 0,
+            "servers.{}.level".format(str(guild.id)): level,
+            "servers.{}.current_exp".format(str(guild.id)): 0,
             "total_exp": userinfo["total_exp"]
             }})
-        await self.bot.say("**{}'s Level has been set to `{}`.**".format(self._is_mention(user), level))
+        await ctx.send("**{}'s Level has been set to `{}`.**".format(self._is_mention(user), level))
         await self._handle_levelup(user, userinfo, guild, channel)
 
     @checks.is_owner()
@@ -1077,10 +1072,10 @@ class Leveler(commands.Cog):
         '''Toggle mentions on messages.'''
         if "mention" not in self.settings.keys() or self.settings["mention"] == True:
             self.settings["mention"] = False
-            await self.bot.say("**Mentions disabled.**")
+            await ctx.send("**Mentions disabled.**")
         else:
             self.settings["mention"] = True
-            await self.bot.say("**Mentions enabled.**")
+            await ctx.send("**Mentions enabled.**")
         fileIO('data/leveler/settings.json', "save", self.settings)
 
     async def _valid_image_url(self, url):
@@ -1104,10 +1099,10 @@ class Leveler(commands.Cog):
         guild = ctx.message.guild
         if str(guild.id) in self.settings["disabled_guilds"]:
             self.settings["disabled_guilds"] = list(filter(lambda a: a != str(guild.id), self.settings["disabled_guilds"]))
-            await self.bot.say("**Leveler enabled on `{}`.**".format(guild.name))
+            await ctx.send("**Leveler enabled on `{}`.**".format(guild.name))
         else:
             self.settings["disabled_guilds"].append(str(guild.id))
-            await self.bot.say("**Leveler disabled on `{}`.**".format(guild.name))
+            await ctx.send("**Leveler disabled on `{}`.**".format(guild.name))
         fileIO('data/leveler/settings.json', "save", self.settings)
 
     @checks.admin_or_permissions(manage_guild=True)
@@ -1125,21 +1120,21 @@ class Leveler(commands.Cog):
             if str(user.id) == self.owner:
                 if all == "disableall":
                     self.settings["text_only"] = []
-                    await self.bot.say("**Text-only disabled for all guilds.**")
+                    await ctx.send("**Text-only disabled for all guilds.**")
                 elif all == "enableall":
                     self.settings["lvl_msg"] = []
                     for guild in self.bot.guilds:
                         self.settings["text_only"].append(str(guild.id))
-                    await self.bot.say("**Text-only messages enabled for all guilds.**")
+                    await ctx.send("**Text-only messages enabled for all guilds.**")
             else:
-                await self.bot.say("**No Permission.**")
+                await ctx.send("**No Permission.**")
         else:
             if str(guild.id) in self.settings["text_only"]:
                 self.settings["text_only"].remove(str(guild.id))
-                await self.bot.say("**Text-only messages disabled for `{}`.**".format(guild.name))
+                await ctx.send("**Text-only messages disabled for `{}`.**".format(guild.name))
             else:
                 self.settings["text_only"].append(str(guild.id))
-                await self.bot.say("**Text-only messages enabled for `{}`.**".format(guild.name))
+                await ctx.send("**Text-only messages enabled for `{}`.**".format(guild.name))
         fileIO('data/leveler/settings.json', "save", self.settings)
 
     @checks.admin_or_permissions(manage_guild=True)
@@ -1157,21 +1152,21 @@ class Leveler(commands.Cog):
             if str(user.id) == self.owner:
                 if all == "disableall":
                     self.settings["lvl_msg"] = []
-                    await self.bot.say("**Level-up messages disabled for all guilds.**")
+                    await ctx.send("**Level-up messages disabled for all guilds.**")
                 elif all == "enableall":
                     self.settings["lvl_msg"] = []
                     for guild in self.bot.guilds:
                         self.settings["lvl_msg"].append(str(guild.id))
-                    await self.bot.say("**Level-up messages enabled for all guilds.**")
+                    await ctx.send("**Level-up messages enabled for all guilds.**")
             else:
-                await self.bot.say("**No Permission.**")
+                await ctx.send("**No Permission.**")
         else:
             if str(guild.id) in self.settings["lvl_msg"]:
                 self.settings["lvl_msg"].remove(str(guild.id))
-                await self.bot.say("**Level-up alerts disabled for `{}`.**".format(guild.name))
+                await ctx.send("**Level-up alerts disabled for `{}`.**".format(guild.name))
             else:
                 self.settings["lvl_msg"].append(str(guild.id))
-                await self.bot.say("**Level-up alerts enabled for `{}`.**".format(guild.name))
+                await ctx.send("**Level-up alerts enabled for `{}`.**".format(guild.name))
         fileIO('data/leveler/settings.json', "save", self.settings)
 
     @checks.admin_or_permissions(manage_guild=True)
@@ -1188,21 +1183,21 @@ class Leveler(commands.Cog):
             if str(user.id) == self.owner:
                 if all == "disableall":
                     self.settings["private_lvl_msg"] = []
-                    await self.bot.say("**Private level-up messages disabled for all guilds.**")
+                    await ctx.send("**Private level-up messages disabled for all guilds.**")
                 elif all == "enableall":
                     self.settings["private_lvl_msg"] = []
                     for guild in self.bot.guilds:
                         self.settings["private_lvl_msg"].append(str(guild.id))
-                    await self.bot.say("**Private level-up messages enabled for all guilds.**")
+                    await ctx.send("**Private level-up messages enabled for all guilds.**")
             else:
-                await self.bot.say("**No Permission.**")
+                await ctx.send("**No Permission.**")
         else:
             if str(guild.id) in self.settings["private_lvl_msg"]:
                 self.settings["private_lvl_msg"].remove(str(guild.id))
-                await self.bot.say("**Private level-up alerts disabled for `{}`.**".format(guild.name))
+                await ctx.send("**Private level-up alerts disabled for `{}`.**".format(guild.name))
             else:
                 self.settings["private_lvl_msg"].append(str(guild.id))
-                await self.bot.say("**Private level-up alerts enabled for `{}`.**".format(guild.name))
+                await ctx.send("**Private level-up alerts enabled for `{}`.**".format(guild.name))
 
         fileIO('data/leveler/settings.json', "save", self.settings)
 
@@ -1210,7 +1205,7 @@ class Leveler(commands.Cog):
     async def badge(self, ctx):
         """Badge Configuration Options"""
         if ctx.invoked_subcommand is None:
-            await ctx.send_help
+            
             return
 
     @badge.command(name="available", pass_context=True, no_pm=True)
@@ -1253,9 +1248,9 @@ class Leveler(commands.Cog):
             counter = 1
             for page in pagify(msg, ["\n"]):
                 if index == 0:
-                    await self.bot.say(title_text, embed = em)
+                    await ctx.send(title_text, embed = em)
                 else:
-                    await self.bot.say(embed = em)
+                    await ctx.send(embed = em)
                 index += 1
 
                 em.set_footer(text = "Page {} of {}".format(counter, total_pages))
@@ -1300,7 +1295,7 @@ class Leveler(commands.Cog):
             em.description = page
             em.set_author(name="Badges for {}".format(user.name), icon_url = user.avatar_url)
             em.set_footer(text = "Page {} of {}".format(counter, total_pages))
-            await self.bot.say(embed = em)
+            await ctx.send(embed = em)
             counter += 1
 
     @badge.command(name="buy", pass_context=True, no_pm=True)
@@ -1324,42 +1319,41 @@ class Leveler(commands.Cog):
                 if "{}_{}".format(name,str(guildid)) not in userinfo['badges'].keys():
                     badge_info = guild_badges[name]
                     if badge_info['price'] == -1:
-                        await self.bot.say('**That badge is not purchasable.**'.format(name))
+                        await ctx.send('**That badge is not purchasable.**'.format(name))
                     elif badge_info['price'] == 0:
                         userinfo['badges']["{}_{}".format(name,str(guildid))] = guild_badges[name]
                         db.users.update_one({'user_id':userinfo['user_id']}, {'$set':{
                             "badges":userinfo['badges'],
                             }})
-                        await self.bot.say('**`{}` has been obtained.**'.format(name))
+                        await ctx.send('**`{}` has been obtained.**'.format(name))
                     else:
                         # use the economy cog
-                        bank = self.bot.get_cog('Economy').bank
-                        await self.bot.say('**{}, you are about to buy the `{}` badge for `{}`. Confirm by typing "yes"**'.format(self._is_mention(user), name, badge_info['price']))
+                        await ctx.send('**{}, you are about to buy the `{}` badge for `{}`. Confirm by typing "yes"**'.format(self._is_mention(user), name, badge_info['price']))
                         answer = await self.bot.wait_for_message(timeout=15, author=user)
                         if answer is None:
-                            await self.bot.say('**Purchase canceled.**')
+                            await ctx.send('**Purchase canceled.**')
                             return
                         elif "yes" not in answer.content.lower():
-                            await self.bot.say('**Badge not purchased.**')
+                            await ctx.send('**Badge not purchased.**')
                             return
                         else:
-                            if bank.account_exists(user) and badge_info['price'] <= bank.get_balance(user):
-                                bank.withdraw_credits(user, badge_info['price'])
+                            if badge_info['price'] <= await bank.get_balance(user):
+                                await bank.withdraw_credits(user, badge_info['price'])
                                 userinfo['badges']["{}_{}".format(name,str(guildid))] = guild_badges[name]
                                 db.users.update_one({'user_id':userinfo['user_id']}, {'$set':{
                                     "badges":userinfo['badges'],
                                     }})
-                                await self.bot.say('**You have bought the `{}` badge for `{}`.**'.format(name, badge_info['price']))
-                            elif bank.account_exists(user) and bank.get_balance(user) < badge_info['price']:
-                                await self.bot.say('**Not enough money! Need `{}` more.**'.format(badge_info['price'] - bank.get_balance(user)))
+                                await ctx.send('**You have bought the `{}` badge for `{}`.**'.format(name, badge_info['price']))
+                            elif bank.get_balance(user) < badge_info['price']:
+                                await ctx.send('**Not enough money! Need `{}` more.**'.format(badge_info['price'] - bank.get_balance(user)))
                             else:
-                                await self.bot.say('**User does not exist in bank. Do {}bank register**'.format(prefix))
+                                await ctx.send('**User does not exist in bank. Do {}bank register**'.format(prefix))
                 else:
-                    await self.bot.say('**{}, you already have this badge!**'.format(user.name))
+                    await ctx.send('**{}, you already have this badge!**'.format(user.name))
             else:
-                await self.bot.say('**The badge `{}` does not exist. (try `{}badge available`)**'.format(name, prefix[0]))
+                await ctx.send('**The badge `{}` does not exist. (try `{}badge available`)**'.format(name, prefix[0]))
         else:
-            await self.bot.say('**There are no badges to get! (try `{}badge get [name] -global`).**'.format(prefix[0]))
+            await ctx.send('**There are no badges to get! (try `{}badge get [name] -global`).**'.format(prefix[0]))
 
     @badge.command(name="set", pass_context=True, no_pm=True)
     async def set(self, ctx, name:str, priority_num:int):
@@ -1372,7 +1366,7 @@ class Leveler(commands.Cog):
         userinfo = self._badge_convert_dict(userinfo)
 
         if priority_num < -1 or priority_num > 5000:
-            await self.bot.say("**Invalid priority number! -1-5000**")
+            await ctx.send("**Invalid priority number! -1-5000**")
             return
 
         for badge in userinfo['badges']:
@@ -1381,10 +1375,10 @@ class Leveler(commands.Cog):
                 db.users.update_one({'user_id':userinfo['user_id']}, {'$set':{
                     "badges":userinfo['badges'],
                     }})
-                await self.bot.say("**The `{}` badge priority has been set to `{}`!**".format(userinfo['badges'][badge]['badge_name'], priority_num))
+                await ctx.send("**The `{}` badge priority has been set to `{}`!**".format(userinfo['badges'][badge]['badge_name'], priority_num))
                 break
         else:
-            await self.bot.say("**You don't have that badge!**")
+            await ctx.send("**You don't have that badge!**")
 
     def _badge_convert_dict(self, userinfo):
         if 'badges' not in userinfo or not isinstance(userinfo['badges'], dict):
@@ -1411,7 +1405,7 @@ class Leveler(commands.Cog):
         if str(user.id) == self.owner:
             pass
         elif members < required_members:
-            await self.bot.say("**You may only add badges in guilds with {}+ non-bot members**".format(required_members))
+            await ctx.send("**You may only add badges in guilds with {}+ non-bot members**".format(required_members))
             return
 
         if '-global' in description and str(user.id) == self.owner:
@@ -1423,23 +1417,23 @@ class Leveler(commands.Cog):
             guildname = guild.name
 
         if '.' in name:
-            await self.bot.say("**Name cannot contain `.`**")
+            await ctx.send("**Name cannot contain `.`**")
             return
 
         if not await self._valid_image_url(bg_img):
-            await self.bot.say("**Background is not valid. Enter hex or image url!**")
+            await ctx.send("**Background is not valid. Enter hex or image url!**")
             return
 
         if not self._is_hex(border_color):
-            await self.bot.say("**Border color is not valid!**")
+            await ctx.send("**Border color is not valid!**")
             return
 
         if price < -1:
-            await self.bot.say("**Price is not valid!**")
+            await ctx.send("**Price is not valid!**")
             return
 
         if len(description.split(" ")) > 40:
-            await self.bot.say("**Description is too long! <=40**")
+            await ctx.send("**Description is too long! <=40**")
             return
 
         badges = db.badges.find_one({'guild_id':guildid})
@@ -1465,7 +1459,7 @@ class Leveler(commands.Cog):
             db.badges.update_one({'guild_id':guildid}, {'$set': {
                 'badges': badges['badges']
                 }})
-            await self.bot.say("**`{}` Badge added in `{}` guild.**".format(name, guildname))
+            await ctx.send("**`{}` Badge added in `{}` guild.**".format(name, guildname))
         else:
             # update badge in the guild
             badges['badges'][name] = new_badge
@@ -1488,7 +1482,7 @@ class Leveler(commands.Cog):
                             }})
                 except:
                     pass
-            await self.bot.say("**The `{}` badge has been updated**".format(name))
+            await ctx.send("**The `{}` badge has been updated**".format(name))
 
     @checks.is_owner()
     @badge.command(no_pm=True)
@@ -1496,11 +1490,11 @@ class Leveler(commands.Cog):
         """circles or bars."""
         valid_types = ["circles", "bars"]
         if name.lower() not in valid_types:
-            await self.bot.say("**That is not a valid badge type!**")
+            await ctx.send("**That is not a valid badge type!**")
             return
 
         self.settings["badge_type"] = name.lower()
-        await self.bot.say("**Badge type set to `{}`**".format(name.lower()))
+        await ctx.send("**Badge type set to `{}`**".format(name.lower()))
         fileIO('data/leveler/settings.json', "save", self.settings)
 
     def _is_hex(self, color:str):
@@ -1532,7 +1526,7 @@ class Leveler(commands.Cog):
         userinfo = self._badge_convert_dict(userinfo)
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         guildbadges = db.badges.find_one({'guild_id':guildid})
@@ -1555,9 +1549,9 @@ class Leveler(commands.Cog):
                 except:
                     pass
 
-            await self.bot.say("**The `{}` badge has been removed.**".format(name))
+            await ctx.send("**The `{}` badge has been removed.**".format(name))
         else:
-            await self.bot.say("**That badge does not exist.**")
+            await ctx.send("**That badge does not exist.**")
 
     @checks.mod_or_permissions(manage_roles=True)
     @badge.command(pass_context = True, no_pm=True)
@@ -1571,7 +1565,7 @@ class Leveler(commands.Cog):
         userinfo = self._badge_convert_dict(userinfo)
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         guildbadges = db.badges.find_one({'guild_id':str(guild.id)})
@@ -1579,15 +1573,15 @@ class Leveler(commands.Cog):
         badge_name = "{}_{}".format(name, str(guild.id))
 
         if name not in badges:
-            await self.bot.say("**That badge doesn't exist in this guild!**")
+            await ctx.send("**That badge doesn't exist in this guild!**")
             return
         elif badge_name in badges.keys():
-            await self.bot.say("**{} already has that badge!**".format(self._is_mention(user)))
+            await ctx.send("**{} already has that badge!**".format(self._is_mention(user)))
             return
         else:
             userinfo["badges"][badge_name] = badges[name]
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"badges": userinfo["badges"]}})
-            await self.bot.say("**{} has just given `{}` the `{}` badge!**".format(self._is_mention(org_user), self._is_mention(user), name))
+            await ctx.send("**{} has just given `{}` the `{}` badge!**".format(self._is_mention(org_user), self._is_mention(user), name))
 
     @checks.mod_or_permissions(manage_roles=True)
     @badge.command(pass_context = True, no_pm=True)
@@ -1601,7 +1595,7 @@ class Leveler(commands.Cog):
         userinfo = self._badge_convert_dict(userinfo)
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("Leveler commands for this guild are disabled.")
+            await ctx.send("Leveler commands for this guild are disabled.")
             return
 
         guildbadges = db.badges.find_one({'guild_id':str(guild.id)})
@@ -1609,16 +1603,16 @@ class Leveler(commands.Cog):
         badge_name = "{}_{}".format(name, str(guild.id))
 
         if name not in badges:
-            await self.bot.say("**That badge doesn't exist in this guild!**")
+            await ctx.send("**That badge doesn't exist in this guild!**")
         elif badge_name not in userinfo["badges"]:
-            await self.bot.say("**{} does not have that badge!**".format(self._is_mention(user)))
+            await ctx.send("**{} does not have that badge!**".format(self._is_mention(user)))
         else:
             if userinfo['badges'][badge_name]['price'] == -1:
                 del userinfo["badges"][badge_name]
                 db.users.update_one({'user_id':str(str(user.id))}, {'$set':{"badges": userinfo["badges"]}})
-                await self.bot.say("**{} has taken the `{}` badge from {}! :upside_down:**".format(self._is_mention(org_user), name, self._is_mention(user)))
+                await ctx.send("**{} has taken the `{}` badge from {}! :upside_down:**".format(self._is_mention(org_user), name, self._is_mention(user)))
             else:
-                await self.bot.say("**You can't take away purchasable badges!**")
+                await ctx.send("**You can't take away purchasable badges!**")
 
     @checks.mod_or_permissions(manage_roles=True)
     @badge.command(name = 'link', no_pm=True, pass_context=True)
@@ -1628,11 +1622,11 @@ class Leveler(commands.Cog):
         guildbadges = db.badges.find_one({'guild_id':str(guild.id)})
 
         if guildbadges == None:
-            await self.bot.say("**This guild does not have any badges!**")
+            await ctx.send("**This guild does not have any badges!**")
             return
 
         if badge_name not in guildbadges['badges'].keys():
-            await self.bot.say("**Please make sure the `{}` badge exists!**".format(badge_name))
+            await ctx.send("**Please make sure the `{}` badge exists!**".format(badge_name))
             return
         else:
             guild_linked_badges = db.badgelinks.find_one({'guild_id':str(guild.id)})
@@ -1647,7 +1641,7 @@ class Leveler(commands.Cog):
             else:
                 guild_linked_badges['badges'][badge_name] = str(level)
                 db.badgelinks.update_one({'guild_id':str(guild.id)}, {'$set':{'badges':guild_linked_badges['badges']}})
-            await self.bot.say("**The `{}` badge has been linked to level `{}`**".format(badge_name, level))
+            await ctx.send("**The `{}` badge has been linked to level `{}`**".format(badge_name, level))
 
     @checks.admin_or_permissions(manage_roles=True)
     @badge.command(name = 'unlink', no_pm=True, pass_context=True)
@@ -1659,11 +1653,11 @@ class Leveler(commands.Cog):
         badge_links = guild_linked_badges['badges']
 
         if badge_name in badge_links.keys():
-            await self.bot.say("**Badge/Level association `{}`/`{}` removed.**".format(badge_name, badge_links[badge_name]))
+            await ctx.send("**Badge/Level association `{}`/`{}` removed.**".format(badge_name, badge_links[badge_name]))
             del badge_links[badge_name]
             db.badgelinks.update_one({'guild_id':str(guild.id)},{'$set':{'badges':badge_links}})
         else:
-            await self.bot.say("**The `{}` badge is not linked to any levels!**".format(badge_name))
+            await ctx.send("**The `{}` badge is not linked to any levels!**".format(badge_name))
 
     @checks.mod_or_permissions(manage_roles=True)
     @badge.command(name = 'listlinks', no_pm=True, pass_context=True)
@@ -1686,13 +1680,13 @@ class Leveler(commands.Cog):
                 msg += '**• {} →** {}\n'.format(badge, badges[badge])
 
         em.description = msg
-        await self.bot.say(embed = em)
+        await ctx.send(embed = em)
 
     @commands.group(pass_context=True)
     async def role(self, ctx):
         """Admin Background Configuration"""
         if ctx.invoked_subcommand is None:
-            await ctx.send_help
+            
             return
 
     @checks.mod_or_permissions(manage_roles=True)
@@ -1705,9 +1699,9 @@ class Leveler(commands.Cog):
         remove_role_obj = discord.utils.find(lambda r: r.name == remove_role, guild.roles)
         if role_obj == None or (remove_role != None and remove_role_obj == None):
             if remove_role == None:
-                await self.bot.say("**Please make sure the `{}` role exists!**".format(role_name))
+                await ctx.send("**Please make sure the `{}` role exists!**".format(role_name))
             else:
-                await self.bot.say("**Please make sure the `{}` and/or `{}` roles exist!**".format(role_name, remove_role))
+                await ctx.send("**Please make sure the `{}` and/or `{}` roles exist!**".format(role_name, remove_role))
         else:
             guild_roles = db.roles.find_one({'guild_id':str(guild.id)})
             if not guild_roles:
@@ -1730,9 +1724,9 @@ class Leveler(commands.Cog):
                 db.roles.update_one({'guild_id':str(guild.id)}, {'$set':{'roles':guild_roles['roles']}})
 
             if remove_role == None:
-                await self.bot.say("**The `{}` role has been linked to level `{}`**".format(role_name, level))
+                await ctx.send("**The `{}` role has been linked to level `{}`**".format(role_name, level))
             else:
-                await self.bot.say("**The `{}` role has been linked to level `{}`. Will also remove `{}` role.**".format(
+                await ctx.send("**The `{}` role has been linked to level `{}`. Will also remove `{}` role.**".format(
                     role_name, level, remove_role))
 
     @checks.mod_or_permissions(manage_roles=True)
@@ -1745,11 +1739,11 @@ class Leveler(commands.Cog):
         roles = guild_roles['roles']
 
         if role_name in roles:
-            await self.bot.say("**Role/Level association `{}`/`{}` removed.**".format(role_name, roles[role_name]['level']))
+            await ctx.send("**Role/Level association `{}`/`{}` removed.**".format(role_name, roles[role_name]['level']))
             del roles[role_name]
             db.roles.update_one({'guild_id':str(guild.id)},{'$set':{'roles':roles}})
         else:
-            await self.bot.say("**The `{}` role is not linked to any levels!**".format(role_name))
+            await ctx.send("**The `{}` role is not linked to any levels!**".format(role_name))
 
     @checks.mod_or_permissions(manage_roles=True)
     @role.command(name = 'listlinks', no_pm=True, pass_context=True)
@@ -1775,14 +1769,14 @@ class Leveler(commands.Cog):
                     msg += '**• {} →** {}\n'.format(role, roles[role]['level'])
 
         em.description = msg
-        await self.bot.say(embed = em)
+        await ctx.send(embed = em)
 
     @lvladmin.group(name = "bg", pass_context=True)
     async def lvladminbg(self, ctx):
         """Admin Background Configuration"""
         if ctx.invoked_subcommand is None or \
                 isinstance(ctx.invoked_subcommand, commands.Group):
-            await ctx.send_help
+            
             return
 
     @checks.is_owner()
@@ -1790,39 +1784,39 @@ class Leveler(commands.Cog):
     async def addprofilebg(self, name:str, url:str):
         """Add a profile background. Proportions: (290px x 290px)"""
         if name in self.backgrounds["profile"].keys():
-            await self.bot.say("**That profile background name already exists!**")
+            await ctx.send("**That profile background name already exists!**")
         elif not await self._valid_image_url(url):
-            await self.bot.say("**That is not a valid image url!**")
+            await ctx.send("**That is not a valid image url!**")
         else:
             self.backgrounds["profile"][name] = url
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**New profile background(`{}`) added.**".format(name))
+            await ctx.send("**New profile background(`{}`) added.**".format(name))
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True)
     async def addrankbg(self, name:str, url:str):
         """Add a rank background. Proportions: (360px x 100px)"""
         if name in self.backgrounds["rank"].keys():
-            await self.bot.say("**That rank background name already exists!**")
+            await ctx.send("**That rank background name already exists!**")
         elif not await self._valid_image_url(url):
-            await self.bot.say("**That is not a valid image url!**")
+            await ctx.send("**That is not a valid image url!**")
         else:
             self.backgrounds["rank"][name] = url
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**New rank background(`{}`) added.**".format(name))
+            await ctx.send("**New rank background(`{}`) added.**".format(name))
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True)
     async def addlevelbg(self, name:str, url:str):
         '''Add a level-up background. Proportions: (85px x 105px)'''
         if name in self.backgrounds["levelup"].keys():
-            await self.bot.say("**That level-up background name already exists!**")
+            await ctx.send("**That level-up background name already exists!**")
         elif not await self._valid_image_url(url):
-            await self.bot.say("**That is not a valid image url!**")
+            await ctx.send("**That is not a valid image url!**")
         else:
             self.backgrounds["levelup"][name] = url
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**New level-up background(`{}`) added.**".format(name))
+            await ctx.send("**New level-up background(`{}`) added.**".format(name))
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True, pass_context=True)
@@ -1832,21 +1826,21 @@ class Leveler(commands.Cog):
         type_input = bg_type.lower()
 
         if type_input not in valid_types:
-            await self.bot.say('**Please choose a valid type: `profile`, `rank`, `levelup`.')
+            await ctx.send('**Please choose a valid type: `profile`, `rank`, `levelup`.')
             return
 
         # test if valid user_id
         userinfo = db.users.find_one({'user_id':user_id})
         if not userinfo:
-            await self.bot.say("**That is not a valid user id!**")
+            await ctx.send("**That is not a valid user id!**")
             return
 
         if not await self._valid_image_url(img_url):
-            await self.bot.say("**That is not a valid image url!**")
+            await ctx.send("**That is not a valid image url!**")
             return
 
         db.users.update_one({'user_id':user_id}, {'$set':{"{}_background".format(type_input): img_url}})
-        await self.bot.say("**User {} custom {} background set.**".format(user_id, bg_type))
+        await ctx.send("**User {} custom {} background set.**".format(user_id, bg_type))
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True)
@@ -1855,9 +1849,9 @@ class Leveler(commands.Cog):
         if name in self.backgrounds["profile"].keys():
             del self.backgrounds["profile"][name]
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**The profile background(`{}`) has been deleted.**".format(name))
+            await ctx.send("**The profile background(`{}`) has been deleted.**".format(name))
         else:
-            await self.bot.say("**That profile background name doesn't exist.**")
+            await ctx.send("**That profile background name doesn't exist.**")
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True)
@@ -1866,9 +1860,9 @@ class Leveler(commands.Cog):
         if name in self.backgrounds["rank"].keys():
             del self.backgrounds["rank"][name]
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**The rank background(`{}`) has been deleted.**".format(name))
+            await ctx.send("**The rank background(`{}`) has been deleted.**".format(name))
         else:
-            await self.bot.say("**That rank background name doesn't exist.**")
+            await ctx.send("**That rank background name doesn't exist.**")
 
     @checks.is_owner()
     @lvladminbg.command(no_pm=True)
@@ -1877,9 +1871,9 @@ class Leveler(commands.Cog):
         if name in self.backgrounds["levelup"].keys():
             del self.backgrounds["levelup"][name]
             fileIO('data/leveler/backgrounds.json', "save", self.backgrounds)
-            await self.bot.say("**The level-up background(`{}`) has been deleted.**".format(name))
+            await ctx.send("**The level-up background(`{}`) has been deleted.**".format(name))
         else:
-            await self.bot.say("**That level-up background name doesn't exist.**")
+            await ctx.send("**That level-up background name doesn't exist.**")
 
     @commands.command(name = 'backgrounds', pass_context=True, no_pm=True)
     async def disp_backgrounds(self, ctx, type:str = None):
@@ -1889,7 +1883,7 @@ class Leveler(commands.Cog):
         max_all = 18
 
         if str(guild.id) in self.settings["disabled_guilds"]:
-            await self.bot.say("**Leveler commands for this guild are disabled!**")
+            await ctx.send("**Leveler commands for this guild are disabled!**")
             return
 
         em = discord.Embed(description='', colour=user.colour)
@@ -1905,7 +1899,7 @@ class Leveler(commands.Cog):
                 if len(bg_url) >= max_all:
                     bgs += "..."
                 em.add_field(name = category.upper(), value = bgs, inline = False)
-            await self.bot.say(embed = em)
+            await ctx.send(embed = em)
         else:
             if type.lower() == "profile":
                 em.set_author(name="Profile Backgrounds for {}".format(self.bot.user.name), icon_url = self.bot.user.avatar_url)
@@ -1933,10 +1927,10 @@ class Leveler(commands.Cog):
                 for page in pagify(bgs, [" "]):
                     em.description = page
                     em.set_footer(text = "Page {} of {}".format(counter, total_pages))
-                    await self.bot.say(embed = em)
+                    await ctx.send(embed = em)
                     counter += 1
             else:
-                await self.bot.say("**Invalid Background Type. (profile, rank, levelup)**")
+                await ctx.send("**Invalid Background Type. (profile, rank, levelup)**")
 
     async def draw_profile(self, user, guild):
         font_thin_file = 'data/leveler/fonts/Uni_Sans_Thin.ttf'
@@ -2129,11 +2123,7 @@ class Leveler(commands.Cog):
         draw.text((self._center(0, 340, exp_text, exp_fnt), 305), exp_text,  font=exp_fnt, fill=exp_font_color) # Exp Text
 
         try:
-            bank = self.bot.get_cog('Economy').bank
-            if bank.account_exists(user):
-                credits = bank.get_balance(user)
-            else:
-                credits = 0
+            credits = await bank.get_balance(user)
         except:
             credits = 0
         credit_txt = "${}".format(credits)
@@ -2428,7 +2418,7 @@ class Leveler(commands.Cog):
 
         # drawing level bar calculate angle
         start_angle = -90 # from top instead of 3oclock
-        angle = int(360 * (userinfo["guilds"][str(guild.id)]["current_exp"]/self._required_exp(userinfo["guilds"][str(guild.id)]["level"]))) + start_angle
+        angle = int(360 * (userinfo["servers"][str(guild.id)]["current_exp"]/self._required_exp(userinfo["servers"][str(guild.id)]["level"]))) + start_angle
 
         lvl_circle = Image.new("RGBA", (raw_length, raw_length))
         draw_lvl_circle = ImageDraw.Draw(lvl_circle)
@@ -2460,7 +2450,7 @@ class Leveler(commands.Cog):
         level_left = 274
         level_right = right_pos
         draw.rectangle([(level_left, vert_pos), (level_right, vert_pos + title_height)], fill="#AAA") # box
-        lvl_text = "LEVEL {}".format(userinfo["guilds"][str(guild.id)]["level"])
+        lvl_text = "LEVEL {}".format(userinfo["servers"][str(guild.id)]["level"])
         draw.text((self._center(level_left, level_right, lvl_text, level_label_fnt), vert_pos + 3), lvl_text,  font=level_label_fnt, fill=(110,110,110,255)) # Level #
 
         # labels text colors
@@ -2606,8 +2596,8 @@ class Leveler(commands.Cog):
         draw_overlay = ImageDraw.Draw(info_section_process)
         draw_overlay.rectangle([(0,0), (bg_width,20)], fill=(230,230,230,200))
         draw_overlay.rectangle([(0,20), (bg_width,30)], fill=(120,120,120,180)) # Level bar
-        exp_frac = int(userinfo["guilds"][str(guild.id)]["current_exp"])
-        exp_total = self._required_exp(userinfo["guilds"][str(guild.id)]["level"])
+        exp_frac = int(userinfo["servers"][str(guild.id)]["current_exp"])
+        exp_total = self._required_exp(userinfo["servers"][str(guild.id)]["level"])
         exp_width = int(bg_width * (exp_frac/exp_total))
         if "rank_info_color" in userinfo.keys():
             exp_color = tuple(userinfo["rank_info_color"])
@@ -2692,14 +2682,10 @@ class Leveler(commands.Cog):
         # userinfo
         guild_rank = "#{}".format(await self._find_guild_rank(user, guild))
         draw.text((self._center(100, 200, guild_rank, large_fnt), v_label_align - 30), guild_rank,  font=large_fnt, fill=info_text_color) # Rank
-        level_text = "{}".format(userinfo["guilds"][str(guild.id)]["level"])
+        level_text = "{}".format(userinfo["servers"][str(guild.id)]["level"])
         draw.text((self._center(95, 360, level_text, large_fnt), v_label_align - 30), level_text,  font=large_fnt, fill=info_text_color) # Level
         try:
-            bank = self.bot.get_cog('Economy').bank
-            if bank.account_exists(user):
-                credits = bank.get_balance(user)
-            else:
-                credits = 0
+            credits = await bank.get_balance(user)
         except:
             credits = 0
         credit_txt = "${}".format(credits)
@@ -2821,7 +2807,7 @@ class Leveler(commands.Cog):
         white_text = (240,240,240,255)
         dark_text = (35, 35, 35, 230)
         level_up_text = self._contrast(info_color, white_text, dark_text)
-        lvl_text = "LEVEL {}".format(userinfo["guilds"][str(guild.id)]["level"])
+        lvl_text = "LEVEL {}".format(userinfo["servers"][str(guild.id)]["level"])
         draw.text((self._center(50, 170, lvl_text, level_fnt), 22), lvl_text, font=level_fnt, fill=level_up_text) # Level Number
 
         result = Image.alpha_composite(result, process)
@@ -2922,7 +2908,7 @@ class Leveler(commands.Cog):
         white_text = (250,250,250,255)
         dark_text = (35, 35, 35, 230)
         level_up_text = self._contrast(info_color, white_text, dark_text)
-        lvl_text = "LEVEL {}".format(userinfo["guilds"][str(guild.id)]["level"])
+        lvl_text = "LEVEL {}".format(userinfo["servers"][str(guild.id)]["level"])
         draw.text((self._center(60, 170, lvl_text, level_fnt), 23), lvl_text, font=level_fnt, fill=level_up_text) # Level Number
 
         result = Image.alpha_composite(result, process)
@@ -2963,24 +2949,24 @@ class Leveler(commands.Cog):
 
         # add to total exp
         try:
-            required = self._required_exp(userinfo["guilds"][str(guild.id)]["level"])
+            required = self._required_exp(userinfo["servers"][str(guild.id)]["level"])
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
                 "total_exp": userinfo["total_exp"] + exp,
                 }})
         except:
             pass
         print(userinfo["total_exp"] + exp)
-        if userinfo["guilds"][str(guild.id)]["current_exp"] + exp >= required:
-            userinfo["guilds"][str(guild.id)]["level"] += 1
+        if userinfo["servers"][str(guild.id)]["current_exp"] + exp >= required:
+            userinfo["servers"][str(guild.id)]["level"] += 1
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
-                "guilds.{}.level".format(str(guild.id)): userinfo["guilds"][str(guild.id)]["level"],
-                "guilds.{}.current_exp".format(str(guild.id)): userinfo["guilds"][str(guild.id)]["current_exp"] + exp - required,
+                "servers.{}.level".format(str(guild.id)): userinfo["servers"][str(guild.id)]["level"],
+                "servers.{}.current_exp".format(str(guild.id)): userinfo["servers"][str(guild.id)]["current_exp"] + exp - required,
                 "chat_block": time.time()
                 }})
             await self._handle_levelup(user, userinfo, guild, channel)
         else:
             db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
-                "guilds.{}.current_exp".format(str(guild.id)): userinfo["guilds"][str(guild.id)]["current_exp"] + exp,
+                "servers.{}.current_exp".format(str(guild.id)): userinfo["servers"][str(guild.id)]["current_exp"] + exp,
                 "chat_block": time.time()
                 }})
 
@@ -3003,7 +2989,7 @@ class Leveler(commands.Cog):
                 channel = user
                 name = "You"
 
-            new_level = str(userinfo["guilds"][str(guild.id)]["level"])
+            new_level = str(userinfo["servers"][str(guild.id)]["level"])
             # add to appropriate role if necessary
             try:
                 guild_roles = db.roles.find_one({'guild_id':str(guild.id)})
@@ -3011,13 +2997,13 @@ class Leveler(commands.Cog):
                     for role in guild_roles['roles'].keys():
                         if int(guild_roles['roles'][role]['level']) == int(new_level):
                             role_obj = discord.utils.find(lambda r: r.name == role, guild.roles)
-                            await self.bot.add_roles(user, role_obj)
+                            await user.add_roles(role_obj)
 
                             if guild_roles['roles'][role]['remove_role'] != None:
                                 remove_role_obj = discord.utils.find(
                                     lambda r: r.name == guild_roles['roles'][role]['remove_role'], guild.roles)
                                 if remove_role_obj != None:
-                                    await self.bot.remove_roles(user, remove_role_obj)
+                                    await user.remove_roles(remove_role_obj)
             except:
                 await channel.send('Role was not set. Missing Permissions!')
 
@@ -3053,9 +3039,9 @@ class Leveler(commands.Cog):
             try:
                 guild_exp = 0
                 userid = userinfo["user_id"]
-                for i in range(userinfo["guilds"][str(guild.id)]["level"]):
+                for i in range(userinfo["servers"][str(guild.id)]["level"]):
                     guild_exp += self._required_exp(i)
-                guild_exp += userinfo["guilds"][str(guild.id)]["current_exp"]
+                guild_exp += userinfo["servers"][str(guild.id)]["current_exp"]
                 users.append((str(userid), guild_exp))
             except:
                 pass
@@ -3073,7 +3059,7 @@ class Leveler(commands.Cog):
         users = []
         for userinfo in db.users.find({}):
             userid = userinfo["user_id"]
-            if "guilds" in userinfo and str(guild.id) in userinfo["guilds"]:
+            if "servers" in userinfo and str(guild.id) in userinfo["servers"]:
                 users.append((userinfo["user_id"], userinfo["rep"]))
 
         sorted_list = sorted(users, key=operator.itemgetter(1), reverse=True)
@@ -3089,9 +3075,9 @@ class Leveler(commands.Cog):
         userinfo = db.users.find_one({'user_id':str(str(user.id))})
 
         try:
-            for i in range(userinfo["guilds"][str(guild.id)]["level"]):
+            for i in range(userinfo["servers"][str(guild.id)]["level"]):
                 guild_exp += self._required_exp(i)
-            guild_exp +=  userinfo["guilds"][str(guild.id)]["current_exp"]
+            guild_exp +=  userinfo["servers"][str(guild.id)]["current_exp"]
             return guild_exp
         except:
             return guild_exp
@@ -3138,7 +3124,7 @@ class Leveler(commands.Cog):
                 new_account = {
                     "user_id" : str(user.id),
                     "username" : user.name,
-                    "guilds": {},
+                    "servers": {},
                     "total_exp": 0,
                     "profile_background": self.backgrounds["profile"]["default"],
                     "rank_background": self.backgrounds["rank"]["default"],
@@ -3164,10 +3150,10 @@ class Leveler(commands.Cog):
                         "username": user.name,
                     }}, upsert = True)
 
-            if "guilds" not in userinfo or str(guild.id) not in userinfo["guilds"]:
+            if "servers" not in userinfo or str(guild.id) not in userinfo["servers"]:
                 db.users.update_one({'user_id':str(str(user.id))}, {'$set':{
-                        "guilds.{}.level".format(str(guild.id)): 0,
-                        "guilds.{}.current_exp".format(str(guild.id)): 0,
+                        "servers.{}.level".format(str(guild.id)): 0,
+                        "servers.{}.current_exp".format(str(guild.id)): 0,
                     }}, upsert = True)
         except AttributeError as e:
             pass
