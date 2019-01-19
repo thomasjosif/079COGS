@@ -39,7 +39,7 @@ class MsgVote(commands.Cog):
             await self.conf.dn_emoji.set("👎")
 
     @commands.group(name="msgvote", pass_context=True, no_pm=True)
-    @checks.admin_or_permissions(manage_server=True)
+    @checks.admin_or_permissions(manage_guild=True)
     async def msgvote(self, ctx):
         """Msgvote cog settings"""
 
