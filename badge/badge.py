@@ -27,8 +27,9 @@ class Badge(commands.Cog):
         self.config.register_global(**default_global)
         print('Addon "{}" loaded'.format(self.__class__.__name__))
 
+
     @commands.command(pass_context=True)
-    @commands.has_role("Patreon Supporters")
+    @commands.has_any_role("Patreon Supporters", "Patreon level - Major Scientist", "Patreon level - Zone Manager", "Patreon level - Facility Manager")
     async def issuebadge(self, ctx, arg):
         if ctx.message.channel.id == 472408004587945984:
             rDiscordIdQuery = requests.post("https://api.scpslgame.com/admin/badge.php", data={'token': await self.config.TOKEN(), 'action': 'queryDiscordId', 'id': ctx.message.author.id})
@@ -41,7 +42,7 @@ class Badge(commands.Cog):
             return
 
     @commands.command(pass_context=True)
-    @commands.has_role("Patreon Supporters")
+    @commands.has_any_role("Patreon Supporters", "Patreon level - Major Scientist", "Patreon level - Zone Manager", "Patreon level - Facility Manager")
     async def revokebadge(self, ctx):
         if ctx.message.channel.id == 472408004587945984:
             rDiscordIdQuery = requests.post("https://api.scpslgame.com/admin/badge.php", data={'token': await self.config.TOKEN(), 'action': 'queryDiscordId', 'id': ctx.message.author.id})
