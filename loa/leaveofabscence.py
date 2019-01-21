@@ -73,7 +73,7 @@ class LOACog(commands.Cog):
             self.futures.append(asyncio.ensure_future(self.remind_loa_ended(user, channel, message, seconds, loa)))
             await self.logLOA("started", user, loa)
 
-    @loa.command()
+    @loa.command(aliases=['setchannel'])
     @commands.has_permissions(manage_channels=True)
     async def setloachannel(self, ctx, channel : discord.TextChannel):
         """Set the LOA's Channel in Config"""
@@ -88,7 +88,7 @@ class LOACog(commands.Cog):
         loaChannel = self.bot.get_channel(loaChannel)
         await ctx.send(f'LOA Channel updated from {prevloaChannel.mention} to {loaChannel.mention}.')
 
-    @loa.command()
+    @loa.command(aliases=['setlogging'])
     @commands.has_permissions(manage_channels=True)
     async def setloggingchannel(self, ctx, channel : discord.TextChannel):
         """Set the LOA's Logging Channel in Config"""
@@ -98,10 +98,10 @@ class LOACog(commands.Cog):
             return
 
         prevloggingChannel = self.bot.get_channel(prevloggingChannel)
-        await self.config.prevloggingChannel.set(channel.id)
+        await self.config.loggingChannel.set(channel.id)
         loggingChannel = await self.config.loggingChannel()
         loggingChannel = self.bot.get_channel(loggingChannel)
-        await ctx.send(f'LOA Logging Channel updated from {prevloaChannel.mention} to {loaChannel.mention}.')
+        await ctx.send(f'LOA Logging Channel updated from {prevloggingChannel.mention} to {loggingChannel.mention}.')
 
     @loa.command(hidden=True)
     @commands.has_permissions(manage_channels=True)
