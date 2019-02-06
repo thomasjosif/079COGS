@@ -3,11 +3,23 @@ import asyncio
 import collections
 import re
 import datetime
+from dateutil.parser import parse
 from redbot.core import commands, Config, checks
 from typing import Optional
 
 def from_NWStaff_guild(ctx):
         return ctx.guild.id == 420530084294688775
+
+class Date(commands.Converter):
+    async def convert(self, ctx, arg):
+        result = None
+        try:
+            result = parse(arg)
+        except ValueError:
+            result = None
+        if result is None:
+            raise commands.BadArgument('Unable to parse Date "{}" '.format(arg))
+        return result
 
 class LOACog(commands.Cog):
     """Commands for creating and modifying Leave of Abscences for Northwood Staff"""
@@ -24,6 +36,7 @@ class LOACog(commands.Cog):
         self.config = Config.get_conf(self, 8237492837454039, force_registration=True)
         self.config.register_global(loas = [], loaChannel = 441315223052484618, loggingChannel = 536271582264295457)
         self.futures = []
+        self.time_format = "%b %d, %Y @ %I:%M %p UTC" #https://docs.python.org/2/library/datetime.html#strftime-strptime-behavior
         asyncio.ensure_future(self.restart_loas())
 
     @commands.group()
@@ -34,44 +47,42 @@ class LOACog(commands.Cog):
             pass
 
     @loa.command(name='submit', aliases=['create'])
-    async def submitLOA(self, ctx, time, user : Optional[discord.Member] = None, *, reason = None):
+    async def submitLOA(self, ctx, enddate : Date, startdate : Optional[Date] = None, user : Optional[discord.Member] = None, *, reason = None):
         """Submit a Leave of Absence for your Northwood Staff position"""
-
         channel = ctx.message.channel
+        if user is not None and not ctx.author.guild_permissions.manage_channels:
+            await ctx.send("You are not allowed to submit LOAs for others.")
+            return
         if user is None:
             user = ctx.author
-
-        seconds =  self.get_seconds(time)
-        if seconds is None:
-            await ctx.send('Invalid Time. Please enter __**End Time**__ for LOA. \nExamples for time: `5d, 2w4d, 1mo, 1y1mo2w5d`')
-            return
-
-        time_now = datetime.datetime.utcnow()
-        days, secs = divmod(seconds, 3600*24)
-        end_time = time_now + datetime.timedelta(days=days, seconds=secs)
-
-        em = discord.Embed(color=0x3DF270)
-        em.set_author(name='Northwood Studios Staff Leave of Abscence')
-        em.set_thumbnail(url=user.avatar_url)
-        em.add_field(name='Staff Name', value=user.mention)
-        em.add_field(name='Ends On', value=end_time.strftime('%m/%d/%y @ %I:%M %p UTC'))
-        if reason != None:
-            em.add_field(name='Reason', value=reason, inline=False)
-
-        loaChannel = self.bot.get_channel(await self.config.loaChannel())
-        try:
-            message = await loaChannel.send(embed=em)
-        except discord.Forbidden:
-            await ctx.send('I do not have permissions to send a message in ' + loaChannel.mention)
+        if reason is None:
+            return await ctx.send("You must provide a reason for your LOA.")
+        if startdate is None:
+            start_time = datetime.datetime.utcnow()
+            delay = 0
         else:
-            await ctx.send(f'Leave Of Abscence created in {loaChannel.mention}.')
+            start_time = startdate
+            delay = int((start_time - datetime.datetime.utcnow()).total_seconds())
+        #days, secs = divmod(seconds, 3600*24)
+        #end_time = start_time + datetime.timedelta(days=days, seconds=secs)
+        end_time = enddate
+        loa = {'messageID': None, 'ctxChannelID' : channel.id, 'authorID':user.id, 'start_time': start_time.timestamp(), 'end_time': end_time.timestamp(), 'reason': reason}
+        if start_time > end_time:
+            await ctx.send("Invalid Start date. Cannot be less than end date")
+            return
+        if start_time > datetime.datetime.utcnow():
+            em = discord.Embed(title="Northwood Studios Staff Leave of Abscence", description=f'Your LOA has been scheduled.', color=0xff8800)
+            em.set_thumbnail(url=user.avatar_url)
+            em.add_field(name='Staff Name', value=user.mention)
+            if reason != None:
+                em.add_field(name='Reason', value=reason)
+            em.add_field(name='Starts On', value=start_time.strftime(self.time_format))
+            em.add_field(name='Ends On', value=end_time.strftime(self.time_format))
+            await ctx.send(embed=em)
+            await self.logLOA("scheduled", user, loa)
+        self.futures.append(asyncio.ensure_future(self.startLOA(ctx, user, delay, loa)))
+            #self.startLOA(ctx, user, delay, loa)
 
-            loa = {'messageID': message.id, 'ctxChannelID' : channel.id, 'authorID':user.id, 'start_time': time_now.timestamp(), 'end_time': end_time.timestamp(), 'reason': reason}
-
-            async with self.config.loas() as loas:
-                loas.append(loa)
-            self.futures.append(asyncio.ensure_future(self.remind_loa_ended(user, channel, message, seconds, loa)))
-            await self.logLOA("started", user, loa)
 
     @loa.command(aliases=['setchannel'])
     @commands.has_permissions(manage_channels=True)
@@ -86,7 +97,13 @@ class LOACog(commands.Cog):
         await self.config.loaChannel.set(channel.id)
         loaChannel = await self.config.loaChannel()
         loaChannel = self.bot.get_channel(loaChannel)
-        await ctx.send(f'LOA Channel updated from {prevloaChannel.mention} to {loaChannel.mention}.')
+        if loaChannel is not None:
+            if prevloaChannel is not None:
+                await ctx.send(f'LOA Channel updated from {prevloaChannel.mention} to {loaChannel.mention}.')
+            else:
+                await ctx.send(f'LOA Channel updated to {loaChannel.mention}.')
+        else:
+            await ctx.send("Channel not found.")
 
     @loa.command(aliases=['setlogging'])
     @commands.has_permissions(manage_channels=True)
@@ -123,7 +140,7 @@ class LOACog(commands.Cog):
             for loa in loas:
                 count += 1
                 user = self.bot.get_user(loa['authorID'])
-                end_time = loa['end_time'].strftime('%m/%d/%y @ %I:%M %p UTC')
+                end_time = loa['end_time'].strftime(self.time_format)
                 loaChannel = await self.config.loaChannel()
                 loaChannel = self.bot.get_channel(loaChannel)
                 message = loaChannel.get_message(loa['messageID'])
@@ -132,22 +149,63 @@ class LOACog(commands.Cog):
                 response += f'- {user}\'s LOA. Scheduled End : {end_time}'
         await ctx.send(response)
 
+    async def startLOA(self, ctx, user, delay, loa):
+        """Begins and Activates LOA within LOA Channel"""
+        await asyncio.sleep(delay)
+        start_time = datetime.datetime.fromtimestamp(loa['start_time']).strftime(self.time_format)
+        end_time = datetime.datetime.fromtimestamp(loa['end_time']).strftime(self.time_format)
+        reason = loa['reason']
+
+        em = discord.Embed(color=0x3DF270)
+        em.set_author(name='Northwood Studios Staff Leave of Abscence')
+        em.set_thumbnail(url=user.avatar_url)
+        em.add_field(name='Staff Name', value=user.mention)
+        if reason != None:
+                em.add_field(name='Reason', value=reason)
+        em.add_field(name='Starts On', value=start_time)
+        em.add_field(name='Ends On', value=end_time, inline = False)
+
+        loaChannel = self.bot.get_channel(await self.config.loaChannel())
+        try:
+            message = await loaChannel.send(embed=em)
+        except discord.Forbidden:
+            await ctx.send('I do not have permissions to send a message in ' + loaChannel.mention)
+        except AttributeError:
+            await ctx.send('LOA Channel is not set.')
+        else:
+            await ctx.send(f'Leave Of Abscence created in {loaChannel.mention}.')
+
+            loa["messageID"] = message.id
+            seconds = (datetime.datetime.fromtimestamp(loa["end_time"]) - datetime.datetime.utcnow()).total_seconds()
+            channel = ctx.message.channel
+            async with self.config.loas() as loas:
+                loas.append(loa)
+            self.futures.append(asyncio.ensure_future(self.remind_loa_ended(user, channel, message, seconds, loa)))
+            await self.logLOA("started", user, loa)
+
     async def logLOA(self, state, user, loa):
         """"Logs LOA and it's started/ended status to Config's LOA Logging Channel."""
         loggingChannel = await self.config.loggingChannel()
         logChannel = self.bot.get_channel(loggingChannel)
 
-        end_time = datetime.datetime.fromtimestamp(loa['end_time']).strftime('%m/%d/%y @ %I:%M %p UTC')
+        start_time = datetime.datetime.fromtimestamp(loa['start_time']).strftime(self.time_format)
+        end_time = datetime.datetime.fromtimestamp(loa['end_time']).strftime(self.time_format)
         reason = loa['reason']
-        color = (discord.Color.green() if state.lower() == "started" else discord.Color.red())
+        if state.lower() == "started":
+            color = 0x3DF270
+        elif state.lower() == "scheduled":
+            color = 0xff8800
+        else:
+            color = discord.Color.red()
 
         em = discord.Embed(color=color)
         em.set_author(name='Northwood Studios Staff Leave of Abscence ' + state.capitalize())
         em.set_thumbnail(url=user.avatar_url)
         em.add_field(name='Staff Name', value=user.mention)
-        em.add_field(name='Ends Date', value=end_time)
         if reason != None:
-            em.add_field(name='Reason', value=reason, inline=False)
+            em.add_field(name='Reason', value=reason)
+        em.add_field(name='Starts On', value=start_time)
+        em.add_field(name='Ends Date', value=end_time)
         try:
             await logChannel.send(embed=em)
         except discord.Forbidden:
@@ -156,7 +214,7 @@ class LOACog(commands.Cog):
     async def remind_loa_ended(self, user, channel, message, seconds, loa):
         """Deletes the LOA and reminds the author their LOA has ended."""
         await asyncio.sleep(seconds)
-        end_time = datetime.datetime.fromtimestamp(loa['end_time']).strftime('%m/%d/%y @ %I:%M %p UTC')
+        end_time = datetime.datetime.fromtimestamp(loa['end_time']).strftime(self.time_format)
         em = discord.Embed(title="Northwood Studios Staff Leave of Abscence", description=f'Your LOA has ended.', color=discord.Color.red())
         em.add_field(name='End Time', value=end_time, inline=False)
         em.add_field(name='Reason', value=loa['reason'], inline=False)
