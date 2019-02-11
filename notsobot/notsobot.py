@@ -508,6 +508,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
             img_urls = get_images[0]
             scale = get_images[1]
             scale_msg = get_images[2]
+            if int(scale) > 3:
+                await ctx.message.channel.send( "Scale too large!")
+                return
             if scale_msg is None:
                 scale_msg = ""
             msg = await ctx.message.channel.send( "ok, processing")
