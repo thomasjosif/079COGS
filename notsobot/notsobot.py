@@ -506,11 +506,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             if not get_images:
                 return
             img_urls = get_images[0]
-            scale = get_images[1]
-            scale_msg = get_images[2]
-            if int(scale) > 3:
-                await ctx.message.channel.send( "Scale too large!")
-                return
+            scale_msg = get_images[1]
             if scale_msg is None:
                 scale_msg = ""
             msg = await ctx.message.channel.send( "ok, processing")
@@ -523,7 +519,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         return
                     continue
                 list_imgs.append(b)
-            final, content_msg = await self.bot.loop.run_in_executor(None, self.do_magik, scale, *list_imgs)
+            final, content_msg = await self.bot.loop.run_in_executor(None, self.do_magik, 1, *list_imgs)
             if type(final) == str:
                 await ctx.send(final)
                 return
