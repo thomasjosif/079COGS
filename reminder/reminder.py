@@ -20,14 +20,22 @@ BaseCog = getattr(commands, "Cog", object)
 
 class Reminder(BaseCog):
     """Utilities to remind yourself of whatever you want"""
+
     __author__ = "ZeLarpMaster#0818"
 
     # Behavior related constants
     TIME_AMNT_REGEX = re.compile("([1-9][0-9]*)([a-z]+)", re.IGNORECASE)
-    TIME_QUANTITIES = collections.OrderedDict([("seconds", 1), ("minutes", 60),
-                                               ("hours", 3600), ("days", 86400),
-                                               ("weeks", 604800), ("months", 2.628e+6),
-                                               ("years", 3.154e+7)])  # (amount in seconds, max amount)
+    TIME_QUANTITIES = collections.OrderedDict(
+        [
+            ("seconds", 1),
+            ("minutes", 60),
+            ("hours", 3600),
+            ("days", 86400),
+            ("weeks", 604800),
+            ("months", 2.628e6),
+            ("years", 3.154e7),
+        ]
+    )  # (amount in seconds, max amount)
     MAX_SECONDS = TIME_QUANTITIES["years"] * 2
 
     def __init__(self, bot: Red):
@@ -37,7 +45,10 @@ class Reminder(BaseCog):
         self.previous_locale = None
         self.reload_translations()
         # force_registration is for weaklings
-        unique_id = int(hashlib.sha512((self.__author__ + "@" + self.__class__.__name__).encode()).hexdigest(), 16)
+        unique_id = int(
+            hashlib.sha512((self.__author__ + "@" + self.__class__.__name__).encode()).hexdigest(),
+            16,
+        )
         self.config = Config.get_conf(self, identifier=unique_id)
         self.config.register_user(reminders=[])
         self.futures = []
@@ -67,12 +78,18 @@ class Reminder(BaseCog):
         else:
             user = message.author
             time_now = datetime.datetime.utcnow()
-            days, secs = divmod(seconds, 3600*24)
+            days, secs = divmod(seconds, 3600 * 24)
             end_time = time_now + datetime.timedelta(days=days, seconds=secs)
-            reminder = {"content": text, "start_time": time_now.timestamp(), "end_time": end_time.timestamp()}
+            reminder = {
+                "content": text,
+                "start_time": time_now.timestamp(),
+                "end_time": end_time.timestamp(),
+            }
             async with self.config.user(user).reminders() as user_reminders:
                 user_reminders.append(reminder)
-            self.futures.append(asyncio.ensure_future(self.remind_later(user, seconds, text, reminder)))
+            self.futures.append(
+                asyncio.ensure_future(self.remind_later(user, seconds, text, reminder))
+            )
             response = self.WILL_REMIND.format(seconds)
         await message.channel.send(response)
 
@@ -84,16 +101,27 @@ class Reminder(BaseCog):
             for reminder in user_config["reminders"]:
                 user = self.bot.get_user(user_id)
                 if user is None:
-                    self.config.remove(reminder)  # Delete the reminder if the user doesn't have a mutual server anymore
+                    self.config.remove(
+                        reminder
+                    )  # Delete the reminder if the user doesn't have a mutual server anymore
                 else:
-                    time_diff = datetime.datetime.fromtimestamp(reminder["end_time"]) - datetime.datetime.utcnow()
+                    time_diff = (
+                        datetime.datetime.fromtimestamp(reminder["end_time"])
+                        - datetime.datetime.utcnow()
+                    )
                     time = max(0, time_diff.total_seconds())
-                    self.futures.append(asyncio.ensure_future(self.remind_later(user, time, reminder["content"], reminder)))
+                    self.futures.append(
+                        asyncio.ensure_future(
+                            self.remind_later(user, time, reminder["content"], reminder)
+                        )
+                    )
 
     async def remind_later(self, user: discord.User, time: float, content: str, reminder):
         """Reminds the `user` in `time` seconds with a message containing `content`"""
         await asyncio.sleep(time)
-        embed = discord.Embed(title=self.REMINDER_TITLE, description=content, color=discord.Colour.blue())
+        embed = discord.Embed(
+            title=self.REMINDER_TITLE, description=content, color=discord.Colour.blue()
+        )
         await user.send(embed=embed)
         async with self.config.user(user).reminders() as user_reminders:
             user_reminders.remove(reminder)
@@ -104,7 +132,9 @@ class Reminder(BaseCog):
         for time_match in self.TIME_AMNT_REGEX.finditer(time):
             time_amnt = int(time_match.group(1))
             time_abbrev = time_match.group(2)
-            time_quantity = discord.utils.find(lambda t: t[0].startswith(time_abbrev), self.TIME_QUANTITIES.items())
+            time_quantity = discord.utils.find(
+                lambda t: t[0].startswith(time_abbrev), self.TIME_QUANTITIES.items()
+            )
             if time_quantity is not None:
                 seconds += time_amnt * time_quantity[1]
         return None if seconds == 0 else seconds
@@ -135,6 +165,8 @@ class Reminder(BaseCog):
 
     def inject_before_invokes(self):
         for name, value in inspect.getmembers(self, lambda o: isinstance(o, commands.Command)):
+
             async def wrapped_reload(*_):
                 self.reload_translations()
+
             value.before_invoke(wrapped_reload)

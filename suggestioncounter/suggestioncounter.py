@@ -12,7 +12,6 @@ def minimalist_embed(color, title: str):
 
 
 class SuggestionCounterCog(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=326328326783286, force_registration=True)
@@ -30,7 +29,9 @@ class SuggestionCounterCog(commands.Cog):
 
         if not suggestion_number.isdigit():
             await ctx.send(
-                embed=minimalist_embed(0xFF0000, "Please ensure that the suggestion number is a digit.")
+                embed=minimalist_embed(
+                    0xFF0000, "Please ensure that the suggestion number is a digit."
+                )
             )
             return
 
@@ -46,7 +47,9 @@ class SuggestionCounterCog(commands.Cog):
                 # channel being missing or message itself being missing
                 if suggestion is None:
                     raise ValueError
-                channel = discord.utils.get(ctx.guild.text_channels, id=await self.config.suggestion_channel())
+                channel = discord.utils.get(
+                    ctx.guild.text_channels, id=await self.config.suggestion_channel()
+                )
                 if channel is None:
                     raise ValueError
                 suggestion_message = await channel.get_message(suggestion)
@@ -61,7 +64,9 @@ class SuggestionCounterCog(commands.Cog):
                             downvotes += 1
 
         except (ValueError, IndexError):
-            await ctx.send(embed=minimalist_embed(0xFF0000, f"Suggestion #{suggestion_number} not found."))
+            await ctx.send(
+                embed=minimalist_embed(0xFF0000, f"Suggestion #{suggestion_number} not found.")
+            )
             return
 
         else:
@@ -79,18 +84,24 @@ class SuggestionCounterCog(commands.Cog):
             suggestion_embed.set_author(name="Suggestion #" + suggestion_number)
             suggestion_embed.add_field(name="Suggested at:", value=creation_date, inline=True)
             suggestion_embed.set_thumbnail(url=suggestion_message.author.avatar_url)
-            suggestion_embed.add_field(name="Suggested by:", value=suggestion_message.author.mention, inline=True)
+            suggestion_embed.add_field(
+                name="Suggested by:", value=suggestion_message.author.mention, inline=True
+            )
 
             if show_score:
                 # take 1 from the suggestion count as actually having the score visible requires a score of 1
-                upvotes = ((upvotes-1) if (upvotes > 0) else 0)
-                downvotes = ((downvotes-1) if (downvotes > 0) else 0)
+                upvotes = (upvotes - 1) if (upvotes > 0) else 0
+                downvotes = (downvotes - 1) if (downvotes > 0) else 0
                 score_str = f"{str(upvotes)} {str(agree)} {str(downvotes)} {str(disagree)}"
                 suggestion_embed.add_field(name="Score:", value=score_str, inline=True)
 
-            suggestion_embed.add_field(name="Suggestion:", value=suggestion_message.content, inline=False)
-            suggestion_embed.set_footer(text=f"Requested by {ctx.author.name} on {request_date}",
-                                        icon_url=ctx.author.avatar_url)
+            suggestion_embed.add_field(
+                name="Suggestion:", value=suggestion_message.content, inline=False
+            )
+            suggestion_embed.set_footer(
+                text=f"Requested by {ctx.author.name} on {request_date}",
+                icon_url=ctx.author.avatar_url,
+            )
 
             await ctx.send(embed=suggestion_embed)
 
@@ -102,7 +113,11 @@ class SuggestionCounterCog(commands.Cog):
         async with self.config.suggestions() as suggestions:
             amount = len(suggestions)
 
-        await ctx.send(embed=minimalist_embed(0x00FF00, f"There are currently {str(amount)} stored suggestions."))
+        await ctx.send(
+            embed=minimalist_embed(
+                0x00FF00, f"There are currently {str(amount)} stored suggestions."
+            )
+        )
 
     async def message_sent(self, message):
         """ Listener for registering new suggestions """

@@ -27,27 +27,31 @@ from redbot.core.data_manager import bundled_data_path
 
 try:
     import aalib
+
     AALIB_INSTALLED = True
 except:
     AALIB_INSTALLED = False
 
 code = "```py\n{0}\n```"
 
-def posnum(num): 
-    if num < 0 : 
-        return - (num)
+
+def posnum(num):
+    if num < 0:
+        return -(num)
     else:
         return num
+
 
 def find_coeffs(pa, pb):
     matrix = []
     for p1, p2 in zip(pa, pb):
-        matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0]*p1[0], -p2[0]*p1[1]])
-        matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1]*p1[0], -p2[1]*p1[1]])
+        matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0] * p1[0], -p2[0] * p1[1]])
+        matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1] * p1[0], -p2[1] * p1[1]])
     A = np.matrix(matrix, dtype=np.float)
     B = np.array(pb).reshape(8)
-    res = np.dot(np.linalg.inv(A.T*A)*A.T, B)
+    res = np.dot(np.linalg.inv(A.T * A) * A.T, B)
     return np.array(res).reshape(8)
+
 
 class DataProtocol(asyncio.SubprocessProtocol):
     def __init__(self, exit_future):
@@ -68,6 +72,7 @@ class DataProtocol(asyncio.SubprocessProtocol):
             self.exit_future.set_result(True)
         except:
             pass
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -77,11 +82,12 @@ class DataProtocol(asyncio.SubprocessProtocol):
         except:
             pass
 
+
 class NotSoBot(getattr(commands, "Cog", object)):
     """
         Rewrite of many NotSoBot commands to work on RedBot V3
     """
-    
+
     def __init__(self, bot):
         self.bot = bot
         try:
@@ -93,18 +99,132 @@ class NotSoBot(getattr(commands, "Cog", object)):
         self.youtube_cache = {}
         self.twitch_cache = []
         self.api_count = 0
-        self.emoji_map = {"a": "", "b": "", "c": "©", "d": "↩", "e": "", "f": "", "g": "⛽", "h": "♓", "i": "ℹ", "j": "" or "", "k": "", "l": "", "m": "Ⓜ", "n": "♑", "o": "⭕" or "", "p": "", "q": "", "r": "®", "s": "" or "⚡", "t": "", "u": "⛎", "v": "" or "♈", "w": "〰" or "", "x": "❌" or "⚔", "y": "✌", "z": "Ⓩ", "1": "1⃣", "2": "2⃣", "3": "3⃣", "4": "4⃣", "5": "5⃣", "6": "6⃣", "7": "7⃣", "8": "8⃣", "9": "9⃣", "0": "0⃣", "$": "", "!": "❗", "?": "❓", " ": "　"}
-        self.regional_map = {"z": "🇿", "y": "🇾", "x": "🇽", "w": "🇼", "v": "🇻", "u": "🇺", "t": "🇹", "s": "🇸", "r": "🇷", "q": "🇶", "p": "🇵", "o": "🇴", "n": "🇳", "m": "🇲", "l": "🇱", "k": "🇰", "j": "🇯", "i": "🇮", "h": "🇭", "g": "🇬", "f": "🇫", "e": "🇪", "d": "🇩", "c": "🇨", "b": "🇧", "a": "🇦"}
+        self.emoji_map = {
+            "a": "",
+            "b": "",
+            "c": "©",
+            "d": "↩",
+            "e": "",
+            "f": "",
+            "g": "⛽",
+            "h": "♓",
+            "i": "ℹ",
+            "j": "" or "",
+            "k": "",
+            "l": "",
+            "m": "Ⓜ",
+            "n": "♑",
+            "o": "⭕" or "",
+            "p": "",
+            "q": "",
+            "r": "®",
+            "s": "" or "⚡",
+            "t": "",
+            "u": "⛎",
+            "v": "" or "♈",
+            "w": "〰" or "",
+            "x": "❌" or "⚔",
+            "y": "✌",
+            "z": "Ⓩ",
+            "1": "1⃣",
+            "2": "2⃣",
+            "3": "3⃣",
+            "4": "4⃣",
+            "5": "5⃣",
+            "6": "6⃣",
+            "7": "7⃣",
+            "8": "8⃣",
+            "9": "9⃣",
+            "0": "0⃣",
+            "$": "",
+            "!": "❗",
+            "?": "❓",
+            " ": "　",
+        }
+        self.regional_map = {
+            "z": "🇿",
+            "y": "🇾",
+            "x": "🇽",
+            "w": "🇼",
+            "v": "🇻",
+            "u": "🇺",
+            "t": "🇹",
+            "s": "🇸",
+            "r": "🇷",
+            "q": "🇶",
+            "p": "🇵",
+            "o": "🇴",
+            "n": "🇳",
+            "m": "🇲",
+            "l": "🇱",
+            "k": "🇰",
+            "j": "🇯",
+            "i": "🇮",
+            "h": "🇭",
+            "g": "🇬",
+            "f": "🇫",
+            "e": "🇪",
+            "d": "🇩",
+            "c": "🇨",
+            "b": "🇧",
+            "a": "🇦",
+        }
         self.emote_regex = re.compile(r"<:.*:(?P<id>\d*)>")
-        self.retro_regex = re.compile(r"((https)(\:\/\/|)?u2\.photofunia\.com\/.\/results\/.\/.\/.*(\.jpg\?download))")
-        self.voice_list = ["`Allison - English/US (Expressive)`", "`Michael - English/US`", "`Lisa - English/US`", "`Kate - English/UK`", "`Renee - French/FR`", "`Birgit - German/DE`", "`Dieter - German/DE`", "`Francesca - Italian/IT`", "`Emi - Japanese/JP`", "`Isabela - Portuguese/BR`", "`Enrique - Spanish`", "`Laura - Spanish`", "`Sofia - Spanish/NA`"]
-        self.scrap_regex = re.compile(",\"ou\":\"([^`]*?)\"")
+        self.retro_regex = re.compile(
+            r"((https)(\:\/\/|)?u2\.photofunia\.com\/.\/results\/.\/.\/.*(\.jpg\?download))"
+        )
+        self.voice_list = [
+            "`Allison - English/US (Expressive)`",
+            "`Michael - English/US`",
+            "`Lisa - English/US`",
+            "`Kate - English/UK`",
+            "`Renee - French/FR`",
+            "`Birgit - German/DE`",
+            "`Dieter - German/DE`",
+            "`Francesca - Italian/IT`",
+            "`Emi - Japanese/JP`",
+            "`Isabela - Portuguese/BR`",
+            "`Enrique - Spanish`",
+            "`Laura - Spanish`",
+            "`Sofia - Spanish/NA`",
+        ]
+        self.scrap_regex = re.compile(',"ou":"([^`]*?)"')
         # self.google_keys = bot.google_keys
-        self.interval_functions = {"random": interval.random, "threshold": interval.threshold, "edges": interval.edge, "waves": interval.waves, "file": interval.file_mask, "file-edges": interval.file_edges, "none": interval.none}
-        self.s_functions =  {"lightness": sorting.lightness, "intensity": sorting.intensity, "maximum": sorting.maximum, "minimum": sorting.minimum}
+        self.interval_functions = {
+            "random": interval.random,
+            "threshold": interval.threshold,
+            "edges": interval.edge,
+            "waves": interval.waves,
+            "file": interval.file_mask,
+            "file-edges": interval.file_edges,
+            "none": interval.none,
+        }
+        self.s_functions = {
+            "lightness": sorting.lightness,
+            "intensity": sorting.intensity,
+            "maximum": sorting.maximum,
+            "minimum": sorting.minimum,
+        }
         self.webmd_responses = ["redacted"]
-        self.webmd_count = random.randint(0, len(self.webmd_responses)-1)
-        self.color_combinations = [[150, 50, -25], [135, 30, -10], [100, 50, -15], [75, 25, -15], [35, 20, -25], [0, 20, 0], [-25, 45, 35], [-25, 45, 65], [-45, 70, 75], [-65, 100, 135], [-45, 90, 100], [-10, 40, 70], [25, 25, 50], [65, 10, 10], [100, 25, 0], [135, 35, -10]]
+        self.webmd_count = random.randint(0, len(self.webmd_responses) - 1)
+        self.color_combinations = [
+            [150, 50, -25],
+            [135, 30, -10],
+            [100, 50, -15],
+            [75, 25, -15],
+            [35, 20, -25],
+            [0, 20, 0],
+            [-25, 45, 35],
+            [-25, 45, 65],
+            [-45, 70, 75],
+            [-65, 100, 135],
+            [-45, 90, 100],
+            [-10, 40, 70],
+            [25, 25, 50],
+            [65, 10, 10],
+            [100, 25, 0],
+            [135, 35, -10],
+        ]
         # self.fp_dir = os.listdir(str(bundled_data_path(self)/"fp/"))
         self.more_cache = {}
         self.mention_regex = re.compile(r"<@!?(?P<id>\d+)>")
@@ -126,7 +246,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 i = split.index("nsfw")
             except:
                 i = None
-            if len(split) > 1 and i != None and split[i-1] != "no":
+            if len(split) > 1 and i != None and split[i - 1] != "no":
                 return True
             elif i is None:
                 split = name.split("-")
@@ -134,7 +254,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     i = split.index("nsfw")
                 except:
                     i = None
-                if len(split) > 1 and i != None and split[i-1] != "no":
+                if len(split) > 1 and i != None and split[i - 1] != "no":
                     return True
         if channel.topic != None:
             topic = channel.topic.lower()
@@ -146,7 +266,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     i = split.index("nsfw")
                 except:
                     i = None
-                if len(split) > 1 and i != None and split[i-1] != "no":
+                if len(split) > 1 and i != None and split[i - 1] != "no":
                     return True
                 elif i is None:
                     split = topic.split("-")
@@ -154,17 +274,17 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         i = split.index("nsfw")
                     except:
                         i = None
-                    if len(split) > 1 and i != None and split[i-1] != "no":
+                    if len(split) > 1 and i != None and split[i - 1] != "no":
                         return True
         return False
 
-    def random(self, image=False, ext:str=False):
+    def random(self, image=False, ext: str = False):
         h = str(uuid.uuid4().hex)
         if image:
-            return "{0}.{1}".format(h, ext) if ext else h+".png"
+            return "{0}.{1}".format(h, ext) if ext else h + ".png"
         return h
 
-    async def get_text(self, url:str):
+    async def get_text(self, url: str):
         try:
             async with self.session.get(url) as resp:
                 try:
@@ -175,7 +295,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except asyncio.TimeoutError:
             return False
 
-    async def replace_mentions(self, txt:str):
+    async def replace_mentions(self, txt: str):
         match = self.mention_regex.findall(txt)
         if match:
             for i in match:
@@ -208,7 +328,13 @@ class NotSoBot(getattr(commands, "Cog", object)):
             member = guild.get_member(match.group("id"))
         if not member:
             name = name.lower()
-            checks = [lambda m: m.name.lower() == name or m.display_name.lower() == name, lambda m: m.name.lower().startswith(name) or m.display_name.lower().startswith(name) or m.id == name, lambda m: name in m.display_name.lower() or name in m.name.lower()]
+            checks = [
+                lambda m: m.name.lower() == name or m.display_name.lower() == name,
+                lambda m: m.name.lower().startswith(name)
+                or m.display_name.lower().startswith(name)
+                or m.id == name,
+                lambda m: name in m.display_name.lower() or name in m.name.lower(),
+            ]
             for i in range(steps if steps <= len(checks) else len(checks)):
                 if i == 3:
                     member = discord.utils.find(checks[1], self.bot.get_all_members())
@@ -265,7 +391,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 if url.startswith("<@"):
                     continue
                 if not url.startswith("http"):
-                    url = "http://"+url
+                    url = "http://" + url
                 try:
                     if scale:
                         s_url = url[8:] if url.startswith("https://") else url[7:]
@@ -274,7 +400,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
                             scale_msg = "`Scale: {0}`\n".format(int_scale)
                             if int_scale > scale_limit and await ctx.bot.is_owner(ctx.author):
                                 int_scale = scale_limit
-                                scale_msg = "`Scale: {0} (Limit: <= {1})`\n".format(int_scale, scale_limit)
+                                scale_msg = "`Scale: {0} (Limit: <= {1})`\n".format(
+                                    int_scale, scale_limit
+                                )
                             continue
                 except Exception as e:
                     pass
@@ -283,18 +411,26 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     check = await self.isgif(url)
                     if check:
                         if msg:
-                            await channel.send(":warning: This command is for images, not gifs (use `gmagik` or `gascii`)!")
+                            await channel.send(
+                                ":warning: This command is for images, not gifs (use `gmagik` or `gascii`)!"
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
                     elif len(img_urls) == 0:
                         name = url[8:] if url.startswith("https://") else url[7:]
                         member = self.find_member(message.guild, name, 2)
                         if member:
-                            img_urls.append(member.avatar_url_as(static_format="png") if member.avatar else member.default_avatar_url)
+                            img_urls.append(
+                                member.avatar_url_as(static_format="png")
+                                if member.avatar
+                                else member.default_avatar_url
+                            )
                             count += 1
                             continue
                         if msg:
-                            await channel.send(":warning: Unable to download or verify URL is valid.")
+                            await channel.send(
+                                ":warning: Unable to download or verify URL is valid."
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
                     else:
@@ -305,18 +441,26 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     check = await self.isimage(url)
                     if check:
                         if msg:
-                            await channel.send(":warning: This command is for gifs, not images (use `magik`)!")
+                            await channel.send(
+                                ":warning: This command is for gifs, not images (use `magik`)!"
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
                     elif len(img_urls) == 0:
                         name = url[8:] if url.startswith("https://") else url[7:]
                         member = self.find_member(message.guild, name, 2)
                         if member:
-                            img_urls.append(member.avatar_url_as(static_format="png") if member.avatar else member.default_avatar_url)
+                            img_urls.append(
+                                member.avatar_url_as(static_format="png")
+                                if member.avatar
+                                else member.default_avatar_url
+                            )
                             count += 1
                             continue
                         if msg:
-                            await channel.send(":warning: Unable to download or verify URL is valid.")
+                            await channel.send(
+                                ":warning: Unable to download or verify URL is valid."
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
                     else:
@@ -332,7 +476,11 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         img_urls.extend([*attachment_images])
                     else:
                         if msg:
-                            await channel.send(":no_entry: Please input url(s){0}or attachment(s).".format(", mention(s) " if not gif else " "))
+                            await channel.send(
+                                ":no_entry: Please input url(s){0}or attachment(s).".format(
+                                    ", mention(s) " if not gif else " "
+                                )
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
             if scale:
@@ -342,7 +490,11 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         img_urls.extend([*attachment_images])
                     else:
                         if msg:
-                            await channel.send(":no_entry: Please input url(s){0}or attachment(s).".format(", mention(s) " if not gif else " "))
+                            await channel.send(
+                                ":no_entry: Please input url(s){0}or attachment(s).".format(
+                                    ", mention(s) " if not gif else " "
+                                )
+                            )
                         ctx.command.reset_cooldown(ctx)
                         return False
                 return img_urls, int_scale, scale_msg
@@ -355,7 +507,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
     async def truncate(self, channel, msg):
         if len(msg) == 0:
             return
-        split = [msg[i:i + 1999] for i in range(0, len(msg), 1999)]
+        split = [msg[i : i + 1999] for i in range(0, len(msg), 1999)]
         try:
             for s in split:
                 await channel.send(s)
@@ -363,7 +515,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except Exception as e:
             await channel.send(e)
 
-    async def get_json(self, url:str):
+    async def get_json(self, url: str):
         try:
             async with self.session.get(url) as resp:
                 try:
@@ -374,7 +526,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except asyncio.TimeoutError:
             return {}
 
-    async def isimage(self, url:str):
+    async def isimage(self, url: str):
         try:
             async with self.session.head(url) as resp:
                 if resp.status == 200:
@@ -386,7 +538,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except:
             return False
 
-    async def isgif(self, url:str):
+    async def isgif(self, url: str):
         try:
             async with self.session.head(url) as resp:
                 if resp.status == 200:
@@ -398,7 +550,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except:
             return False
 
-    async def download(self, url:str, path:str):
+    async def download(self, url: str, path: str):
         try:
             async with self.session.get(url) as resp:
                 data = await resp.read()
@@ -407,7 +559,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         except asyncio.TimeoutError:
             return False
 
-    async def bytes_download(self, url:str):
+    async def bytes_download(self, url: str):
         try:
             async with self.session.get(url) as resp:
                 data = await resp.read()
@@ -424,8 +576,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
         try:
             loop = self.bot.loop
             exit_future = asyncio.Future(loop=loop)
-            create = loop.subprocess_exec(lambda: DataProtocol(exit_future),
-                                                                        *code, stdin=None, stderr=None)
+            create = loop.subprocess_exec(
+                lambda: DataProtocol(exit_future), *code, stdin=None, stderr=None
+            )
             transport, protocol = await asyncio.wait_for(create, timeout=30)
             await exit_future
             if response:
@@ -439,14 +592,14 @@ class NotSoBot(getattr(commands, "Cog", object)):
         finally:
             transport.close()
 
-    async def gist(self, ctx, idk, content:str):
+    async def gist(self, ctx, idk, content: str):
         payload = {
             "name": "NotSoBot - By: {0}.".format(ctx.message.author),
-            "title": "ASCII for text: \"{0}\"".format(idk),
+            "title": 'ASCII for text: "{0}"'.format(idk),
             "text": content,
             "private": "1",
             "lang": "python",
-            "expire": "0"
+            "expire": "0",
         }
         with aiohttp.ClientSession() as session:
             async with session.post("https://spit.mixtape.moe/api/create", data=payload) as r:
@@ -465,11 +618,23 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 i.alpha_channel = True
                 if i.size >= (3000, 3000):
                     return ":warning: `Image exceeds maximum resolution >= (3000, 3000).`", None
-                exif.update({count:(k[5:], v) for k, v in i.metadata.items() if k.startswith("exif:")})
+                exif.update(
+                    {count: (k[5:], v) for k, v in i.metadata.items() if k.startswith("exif:")}
+                )
                 count += 1
                 i.transform(resize="800x800>")
-                i.liquid_rescale(width=int(i.width * 0.5), height=int(i.height * 0.5), delta_x=int(0.5 * scale) if scale else 1, rigidity=0)
-                i.liquid_rescale(width=int(i.width * 1.5), height=int(i.height * 1.5), delta_x=scale if scale else 2, rigidity=0)
+                i.liquid_rescale(
+                    width=int(i.width * 0.5),
+                    height=int(i.height * 0.5),
+                    delta_x=int(0.5 * scale) if scale else 1,
+                    rigidity=0,
+                )
+                i.liquid_rescale(
+                    width=int(i.width * 1.5),
+                    height=int(i.height * 1.5),
+                    delta_x=scale if scale else 2,
+                    rigidity=0,
+                )
                 magikd = BytesIO()
                 i.save(file=magikd)
                 magikd.seek(0)
@@ -489,7 +654,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
             for x in exif:
                 if len(exif[x]) >= 2000:
                     continue
-                exif_msg += "**Exif data for image #{0}**\n".format(str(x+1))+code.format(exif[x])
+                exif_msg += "**Exif data for image #{0}**\n".format(str(x + 1)) + code.format(
+                    exif[x]
+                )
             else:
                 if len(exif_msg) == 0:
                     exif_msg = None
@@ -499,7 +666,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["imagemagic", "imagemagick", "magic", "magick", "cas", "liquid"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def magik(self, ctx, *urls:str):
+    async def magik(self, ctx, *urls: str):
         """Apply magik to Image(s)\n .magik image_url or .magik image_url image_url_2"""
         try:
             get_images = await self.get_images(ctx, urls=urls, limit=6, scale=5)
@@ -509,7 +676,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             scale_msg = get_images[1]
             if scale_msg is None:
                 scale_msg = ""
-            msg = await ctx.message.channel.send( "ok, processing")
+            msg = await ctx.message.channel.send("ok, processing")
             list_imgs = []
             for url in img_urls:
                 b = await self.bytes_download(url)
@@ -519,14 +686,16 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         return
                     continue
                 list_imgs.append(b)
-            final, content_msg = await self.bot.loop.run_in_executor(None, self.do_magik, 1, *list_imgs)
+            final, content_msg = await self.bot.loop.run_in_executor(
+                None, self.do_magik, 1, *list_imgs
+            )
             if type(final) == str:
                 await ctx.send(final)
                 return
             if content_msg is None:
                 content_msg = scale_msg
             else:
-                content_msg = scale_msg+content_msg
+                content_msg = scale_msg + content_msg
             await msg.delete()
             file = discord.File(final, filename="magik.png")
             await ctx.send(content_msg, file=file)
@@ -552,7 +721,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     frame.seek(nframes)
                 except EOFError:
                     break
-            imgs = glob.glob(gif_dir+"*_{0}.png".format(rand))
+            imgs = glob.glob(gif_dir + "*_{0}.png".format(rand))
             if (len(imgs) > 150) and not is_owner:
                 for image in imgs:
                     os.remove(image)
@@ -566,8 +735,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     continue
                 i = im.clone()
                 i.transform(resize="800x800>")
-                i.liquid_rescale(width=int(i.width*0.5), height=int(i.height*0.5), delta_x=1, rigidity=0)
-                i.liquid_rescale(width=int(i.width*1.5), height=int(i.height*1.5), delta_x=2, rigidity=0)
+                i.liquid_rescale(
+                    width=int(i.width * 0.5), height=int(i.height * 0.5), delta_x=1, rigidity=0
+                )
+                i.liquid_rescale(
+                    width=int(i.width * 1.5), height=int(i.height * 1.5), delta_x=2, rigidity=0
+                )
                 i.resize(i.width, i.height)
                 i.save(filename=image)
             return True
@@ -578,11 +751,15 @@ class NotSoBot(getattr(commands, "Cog", object)):
             filename = f.f_code.co_filename
             linecache.checkcache(filename)
             line = linecache.getline(filename, lineno, f.f_globals)
-            print("EXCEPTION IN ({}, LINE {} \"{}\"): {}".format(filename, lineno, line.strip(), exc_obj))
+            print(
+                'EXCEPTION IN ({}, LINE {} "{}"): {}'.format(
+                    filename, lineno, line.strip(), exc_obj
+                )
+            )
 
     @commands.command()
     @commands.cooldown(1, 20, commands.BucketType.guild)
-    async def gmagik(self, ctx, url:str=None, framerate:int=None):
+    async def gmagik(self, ctx, url: str = None, framerate: int = None):
         """Attempt to do magik on a gif"""
         try:
             url = await self.get_images(ctx, urls=url, gif=True, limit=2)
@@ -590,7 +767,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 url = url[0]
             else:
                 return
-            gif_dir = str(bundled_data_path(self))+"/gif/"
+            gif_dir = str(bundled_data_path(self)) + "/gif/"
             if not os.path.exists(gif_dir):
                 os.makedirs(gif_dir)
             check = await self.isgif(url)
@@ -598,10 +775,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 await ctx.send("Invalid or Non-GIF!")
                 ctx.command.reset_cooldown(ctx)
                 return
-            x = await ctx.message.channel.send( "ok, processing (this might take a while for big gifs)")
+            x = await ctx.message.channel.send(
+                "ok, processing (this might take a while for big gifs)"
+            )
             rand = self.random()
-            gifin = gif_dir+"1_{0}.gif".format(rand)
-            gifout = gif_dir+"2_{0}.gif".format(rand)
+            gifin = gif_dir + "1_{0}.gif".format(rand)
+            gifout = gif_dir + "2_{0}.gif".format(rand)
             print(url)
             await self.download(url, gifin)
             is_owner = await ctx.bot.is_owner(ctx.author)
@@ -610,7 +789,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 os.remove(gifin)
                 return
             try:
-                result = await self.bot.loop.run_in_executor(None, self.do_gmagik, is_owner, gifin, gif_dir, rand)
+                result = await self.bot.loop.run_in_executor(
+                    None, self.do_gmagik, is_owner, gifin, gif_dir, rand
+                )
             except Exception as e:
                 print("Failing here")
                 print(e)
@@ -627,16 +808,36 @@ class NotSoBot(getattr(commands, "Cog", object)):
                         framerate = str(20)
                     else:
                         framerate = str(framerate)
-                    args = ["ffmpeg", "-y", "-nostats", "-loglevel", "0", "-i", gif_dir+"%d_{0}.png".format(rand), "-r", framerate, gifout]
+                    args = [
+                        "ffmpeg",
+                        "-y",
+                        "-nostats",
+                        "-loglevel",
+                        "0",
+                        "-i",
+                        gif_dir + "%d_{0}.png".format(rand),
+                        "-r",
+                        framerate,
+                        gifout,
+                    ]
                 else:
-                    args = ["ffmpeg", "-y", "-nostats", "-loglevel", "0", "-i", gif_dir+"%d_{0}.png".format(rand), gifout]
+                    args = [
+                        "ffmpeg",
+                        "-y",
+                        "-nostats",
+                        "-loglevel",
+                        "0",
+                        "-i",
+                        gif_dir + "%d_{0}.png".format(rand),
+                        gifout,
+                    ]
             except Exception as e:
-                print("Some error has occured:"+e)
+                print("Some error has occured:" + e)
             print(gifout)
             await self.run_process(args, True)
             file = discord.File(gifout, filename="gmagik.gif")
             await ctx.send(file=file)
-            for image in glob.glob(gif_dir+"*_{0}.png".format(rand)):
+            for image in glob.glob(gif_dir + "*_{0}.png".format(rand)):
                 os.remove(image)
             os.remove(gifin)
             os.remove(gifout)
@@ -645,21 +846,32 @@ class NotSoBot(getattr(commands, "Cog", object)):
             print(e)
 
     @commands.command()
-    async def caption(self, ctx, url:str=None, text:str=None, color=None, size=None, x:int=None, y:int=None):
+    async def caption(
+        self,
+        ctx,
+        url: str = None,
+        text: str = None,
+        color=None,
+        size=None,
+        x: int = None,
+        y: int = None,
+    ):
         """Add caption to an image\n .caption text image_url"""
         try:
             if url is None:
-                await ctx.send("Error: Invalid Syntax\n`.caption <image_url> <text>** <color>* <size>* <x>* <y>*`\n`* = Optional`\n`** = Wrap text in quotes`")
+                await ctx.send(
+                    "Error: Invalid Syntax\n`.caption <image_url> <text>** <color>* <size>* <x>* <y>*`\n`* = Optional`\n`** = Wrap text in quotes`"
+                )
                 return
             check = await self.isimage(url)
             if check == False:
                 await ctx.send("Invalid or Non-Image!")
                 return
-            xx = await ctx.message.channel.send( "ok, processing")
+            xx = await ctx.message.channel.send("ok, processing")
             b = await self.bytes_download(url)
             img = wand.image.Image(file=b)
             i = img.clone()
-            font_path = str(bundled_data_path(self))+"/arial.ttf"
+            font_path = str(bundled_data_path(self)) + "/arial.ttf"
             if size != None:
                 color = wand.color.Color("{0}".format(color))
                 font = wand.font.Font(path=font_path, size=int(size), color=color)
@@ -671,15 +883,15 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 font = wand.font.Font(path=font_path, size=40, color=color)
             if x is None:
                 x = None
-                y = int(i.height/10)
+                y = int(i.height / 10)
             if x != None and x > 250:
-                x = x/2
+                x = x / 2
             if y != None and y > 250:
-                y = y/2
+                y = y / 2
             if x != None and x > 500:
-                x = x/4
+                x = x / 4
             if y != None and y > 500:
-                y = y/4
+                y = y / 4
             if x != None:
                 i.caption(str(text), left=x, top=y, font=font, gravity="center")
             else:
@@ -691,12 +903,14 @@ class NotSoBot(getattr(commands, "Cog", object)):
             file = discord.File(final, filename="caption.png")
             await ctx.send(file=file)
         except Exception as e:
-            await ctx.send("Error: Invalid Syntax\n `.caption <image_url> <text>** <color>* <size>* <x>* <y>*`\n`* = Optional`\n`** = Wrap text in quotes`")
+            await ctx.send(
+                "Error: Invalid Syntax\n `.caption <image_url> <text>** <color>* <size>* <x>* <y>*`\n`* = Optional`\n`** = Wrap text in quotes`"
+            )
             print(e)
 
     @commands.command()
     @commands.cooldown(1, 5)
-    async def triggered(self, ctx, user:str=None):
+    async def triggered(self, ctx, user: str = None):
         """Generate a Triggered Gif for a User or Image"""
         try:
             url = None
@@ -716,38 +930,58 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 if not get_images:
                     return
                 avatar = get_images[0]
-            path = str(bundled_data_path(self))+"/"+self.random(True)
-            path2 = path[:-3]+"gif"
+            path = str(bundled_data_path(self)) + "/" + self.random(True)
+            path2 = path[:-3] + "gif"
             await self.download(avatar, path)
             t_path = str(bundled_data_path(self)) + "/zDAY2yo.jpg"
             await self.download("https://i.imgur.com/zDAY2yo.jpg", t_path)
-            await self.run_process(["convert",
-                "canvas:none",
-                "-size", "512x680!",
-                "-resize", "512x680!",
-                "-draw", "image over -60,-60 640,640 \"{0}\"".format(path),
-                "-draw", "image over 0,586 0,0 \"{0}\"".format(t_path),
-                "(",
+            await self.run_process(
+                [
+                    "convert",
                     "canvas:none",
-                    "-size", "512x680!",
-                    "-draw", "image over -45,-50 640,640 \"{0}\"".format(path),
-                    "-draw", "image over 0,586 0,0 \"{0}\"".format(t_path),
-                ")",
-                "(",
+                    "-size",
+                    "512x680!",
+                    "-resize",
+                    "512x680!",
+                    "-draw",
+                    'image over -60,-60 640,640 "{0}"'.format(path),
+                    "-draw",
+                    'image over 0,586 0,0 "{0}"'.format(t_path),
+                    "(",
                     "canvas:none",
-                    "-size", "512x680!",
-                    "-draw", "image over -50,-45 640,640 \"{0}\"".format(path),
-                    "-draw", "image over 0,586 0,0 \"{0}\"".format(t_path),
-                ")",
-                "(",
+                    "-size",
+                    "512x680!",
+                    "-draw",
+                    'image over -45,-50 640,640 "{0}"'.format(path),
+                    "-draw",
+                    'image over 0,586 0,0 "{0}"'.format(t_path),
+                    ")",
+                    "(",
                     "canvas:none",
-                    "-size", "512x680!",
-                    "-draw", "image over -45,-65 640,640 \"{0}\"".format(path),
-                    "-draw", "image over 0,586 0,0 \"{0}\"".format(t_path),
-                ")",
-                "-layers", "Optimize",
-                "-set", "delay", "2",
-            path2])
+                    "-size",
+                    "512x680!",
+                    "-draw",
+                    'image over -50,-45 640,640 "{0}"'.format(path),
+                    "-draw",
+                    'image over 0,586 0,0 "{0}"'.format(t_path),
+                    ")",
+                    "(",
+                    "canvas:none",
+                    "-size",
+                    "512x680!",
+                    "-draw",
+                    'image over -45,-65 640,640 "{0}"'.format(path),
+                    "-draw",
+                    'image over 0,586 0,0 "{0}"'.format(t_path),
+                    ")",
+                    "-layers",
+                    "Optimize",
+                    "-set",
+                    "delay",
+                    "2",
+                    path2,
+                ]
+            )
             file = discord.File(path2, filename="/triggered.gif")
             await ctx.send(file=file)
             os.remove(path)
@@ -761,7 +995,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 pass
 
     @commands.command(aliases=["aes"])
-    async def aesthetics(self, ctx, *, text:str):
+    async def aesthetics(self, ctx, *, text: str):
         """Returns inputed text in aesthetics"""
         final = ""
         pre = " ".join(text)
@@ -792,7 +1026,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["expand"])
     @commands.cooldown(1, 5)
-    async def ascii(self, ctx, *, text:str):
+    async def ascii(self, ctx, *, text: str):
         """Convert text into ASCII"""
         if len(text) > 1000:
             await ctx.send("Text is too long!")
@@ -814,27 +1048,29 @@ class NotSoBot(getattr(commands, "Cog", object)):
         await ctx.send(msg, file=file)
 
     def generate_ascii(self, image):
-        font = PIL.ImageFont.truetype(str(bundled_data_path(self))+"/arial.ttf", 15, encoding="unic")
+        font = PIL.ImageFont.truetype(
+            str(bundled_data_path(self)) + "/arial.ttf", 15, encoding="unic"
+        )
         image_width, image_height = image.size
-        aalib_screen_width= int(image_width/24.9)*10
-        aalib_screen_height= int(image_height/41.39)*10
+        aalib_screen_width = int(image_width / 24.9) * 10
+        aalib_screen_height = int(image_height / 41.39) * 10
         screen = aalib.AsciiScreen(width=aalib_screen_width, height=aalib_screen_height)
         im = image.convert("L").resize(screen.virtual_size)
-        screen.put_image((0,0), im)
+        screen.put_image((0, 0), im)
         y = 0
-        how_many_rows = len(screen.render().splitlines()) 
+        how_many_rows = len(screen.render().splitlines())
         new_img_width, font_size = font.getsize(screen.render().splitlines()[0])
-        img = PIL.Image.new("RGBA", (new_img_width, how_many_rows*15), (255,255,255))
+        img = PIL.Image.new("RGBA", (new_img_width, how_many_rows * 15), (255, 255, 255))
         draw = PIL.ImageDraw.Draw(img)
         for lines in screen.render().splitlines():
-            draw.text((0,y), lines, (0,0,0), font=font)
+            draw.text((0, y), lines, (0, 0, 0), font=font)
             y = y + 15
         imagefit = PIL.ImageOps.fit(img, (image_width, image_height), PIL.Image.ANTIALIAS)
         return imagefit
 
     @commands.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def iascii(self, ctx, url:str=None):
+    async def iascii(self, ctx, url: str = None):
         """Generate an ascii art image of last image in chat or from URL"""
         if not AALIB_INSTALLED:
             await ctx.send("aalib couldn't be found on this machine!")
@@ -887,7 +1123,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command()
     @commands.cooldown(1, 10, commands.BucketType.guild)
-    async def gascii(self, ctx, url:str=None):
+    async def gascii(self, ctx, url: str = None):
         """Gif to ASCII"""
         if not AALIB_INSTALLED:
             await ctx.send("aalib couldn't be found on this machine!")
@@ -895,33 +1131,48 @@ class NotSoBot(getattr(commands, "Cog", object)):
         try:
             get_images = await self.get_images(ctx, urls=url, gif=True, limit=2)
             if not get_images:
-                await ctx.send("Error: Invalid Syntax\n`.gascii <gif_url> <liquid_rescale>*`\n`* = Optional`")
+                await ctx.send(
+                    "Error: Invalid Syntax\n`.gascii <gif_url> <liquid_rescale>*`\n`* = Optional`"
+                )
                 return
             for url in get_images:
                 rand = self.random()
                 gif_dir = str(bundled_data_path(self)) + "/gascii/"
                 if not os.path.os.path.exists(gif_dir):
                     os.makedirs(gif_dir)
-                location = gif_dir+"1_{0}.gif".format(rand)
-                location2 = gif_dir+"2_{0}.gif".format(rand)
-                x = await ctx.message.channel.send( "ok, processing")
+                location = gif_dir + "1_{0}.gif".format(rand)
+                location2 = gif_dir + "2_{0}.gif".format(rand)
+                x = await ctx.message.channel.send("ok, processing")
                 await self.download(url, location)
                 if os.path.getsize(location) > 3000000 and await ctx.bot.is_owner(ctx.author):
                     await ctx.send("Sorry, GIF Too Large!")
                     os.remove(location)
                     return
-                result = await self.bot.loop.run_in_executor(None, self.do_gascii, location, rand, gif_dir)
+                result = await self.bot.loop.run_in_executor(
+                    None, self.do_gascii, location, rand, gif_dir
+                )
                 if type(result) == str:
                     await ctx.send(result)
                     return
-                list_imgs = glob.glob(gif_dir+"*_{0}.png".format(rand))
+                list_imgs = glob.glob(gif_dir + "*_{0}.png".format(rand))
                 if len(list_imgs) > 120 and await ctx.bot.is_owner(ctx.author):
                     await ctx.send("Sorry, GIF has too many frames!")
                     for image in list_imgs:
                         os.remove(image)
                     os.remove(location)
                     return
-                await self.run_process(["ffmpeg", "-y", "-nostats", "-loglevel", "0", "-i", gif_dir+"%d_{0}.png".format(rand), location2])
+                await self.run_process(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-nostats",
+                        "-loglevel",
+                        "0",
+                        "-i",
+                        gif_dir + "%d_{0}.png".format(rand),
+                        location2,
+                    ]
+                )
                 await x.delete()
                 print("it gets here")
                 file = discord.File(location2, filename="gascii.gif")
@@ -935,7 +1186,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send("Whoops something went wrong!")
 
     @commands.command()
-    async def rip(self, ctx, name:str=None, *, text:str=None):
+    async def rip(self, ctx, name: str = None, *, text: str = None):
         """Generate tombstone image with name and optional text"""
         if name is None:
             name = ctx.message.author.name
@@ -945,13 +1196,25 @@ class NotSoBot(getattr(commands, "Cog", object)):
             if len(text) > 22:
                 one = text[:22]
                 two = text[22:]
-                url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4={1}&top5={2}".format(name, one, two).replace(" ", "%20")
+                url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4={1}&top5={2}".format(
+                    name, one, two
+                ).replace(
+                    " ", "%20"
+                )
             else:
-                url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4={1}".format(name, text).replace(" ", "%20")
+                url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4={1}".format(
+                    name, text
+                ).replace(
+                    " ", "%20"
+                )
         else:
             if name[-1].lower() != "s":
                 name += "'s"
-            url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4=Hopes and Dreams".format(name).replace(" ", "%20")
+            url = "http://www.tombstonebuilder.com/generate.php?top1=R.I.P&top3={0}&top4=Hopes and Dreams".format(
+                name
+            ).replace(
+                " ", "%20"
+            )
         b = await self.bytes_download(url)
         file = discord.File(b, filename="rip.png")
         await ctx.send(file=file)
@@ -974,7 +1237,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.group()
     @commands.cooldown(1, 5)
-    async def merge(self, ctx, *urls:str):
+    async def merge(self, ctx, *urls: str):
         """Merge/Combine Two Photos"""
         try:
             if urls and "vertical" in urls:
@@ -987,7 +1250,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 return
             elif not get_images:
                 return
-            xx = await ctx.message.channel.send( "ok, processing")
+            xx = await ctx.message.channel.send("ok, processing")
             count = 0
             list_im = []
             for url in get_images:
@@ -1015,7 +1278,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(code.format(e))
 
     @commands.command(aliases=["cancerify", "em"])
-    async def emojify(self, ctx, *, txt:str):
+    async def emojify(self, ctx, *, txt: str):
         """Replace characters in text with emojis"""
         txt = txt.lower()
         msg = ""
@@ -1027,18 +1290,28 @@ class NotSoBot(getattr(commands, "Cog", object)):
         await ctx.send(msg)
 
     @commands.command(aliases=["toe", "analyze"])
-    async def tone(self, ctx, *, text:str):
+    async def tone(self, ctx, *, text: str):
         """Analyze Tone in Text"""
-        payload = {"text":text}
-        headers = {"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:46.0) Gecko/20100101 Firefox/46.0.2 Waterfox/46.0.2"}
-        async with self.session.post("https://tone-analyzer-demo.ng.bluemix.net/api/tone", data=payload, headers=headers) as r:
+        payload = {"text": text}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:46.0) Gecko/20100101 Firefox/46.0.2 Waterfox/46.0.2"
+        }
+        async with self.session.post(
+            "https://tone-analyzer-demo.ng.bluemix.net/api/tone", data=payload, headers=headers
+        ) as r:
             load = await r.json()
-        emotions_msg = "\n".join("{}: {}".format(t["tone_name"], t["score"]) for t in load["document_tone"]["tones"])
+        emotions_msg = "\n".join(
+            "{}: {}".format(t["tone_name"], t["score"]) for t in load["document_tone"]["tones"]
+        )
         sentence_msg = ""
         if "sentences_msg" in load:
             for sentence in load["sentences_tone"]:
-                sentence_msg += "".join("# Sentence {}\n{}: {}\n"
-                                  .format(sentence["sentence_id"]+1, t["tone_name"], t["score"]) for t in sentence["tones"])
+                sentence_msg += "".join(
+                    "# Sentence {}\n{}: {}\n".format(
+                        sentence["sentence_id"] + 1, t["tone_name"], t["score"]
+                    )
+                    for t in sentence["tones"]
+                )
         try:
             em = discord.Embed(colour=await self.bot.db.color())
             em.add_field(name="Emotions", value=emotions_msg)
@@ -1046,24 +1319,28 @@ class NotSoBot(getattr(commands, "Cog", object)):
                 em.add_field(name="Sentences", value=sentence_msg)
             await ctx.send(embed=em)
         except:
-            full_msg = "\n**Emotions**"+code.format(emotions_msg)
+            full_msg = "\n**Emotions**" + code.format(emotions_msg)
             if sentence_msg != "":
-                full_msg += "**Sentence Style**"+code.format(sentence_msg)
+                full_msg += "**Sentence Style**" + code.format(sentence_msg)
             await ctx.send(full_msg)
 
     @commands.command(aliases=["text2img", "texttoimage", "text2image"])
-    async def tti(self, ctx, *, txt:str):
+    async def tti(self, ctx, *, txt: str):
         """Generate an image of text"""
-        api = "http://api.img4me.com/?font=arial&fcolor=FFFFFF&size=35&type=png&text={0}".format(quote(txt))
+        api = "http://api.img4me.com/?font=arial&fcolor=FFFFFF&size=35&type=png&text={0}".format(
+            quote(txt)
+        )
         r = await self.get_text(api)
         b = await self.bytes_download(r)
         file = discord.File(b, filename="tti.png")
         await ctx.send(file=file)
 
     @commands.command(aliases=["comicsans"])
-    async def sans(self, ctx, *, txt:str):
+    async def sans(self, ctx, *, txt: str):
         """Generate an image of text with comicsans"""
-        api = "http://api.img4me.com/?font=comic&fcolor=000000&size=35&type=png&text={0}".format(quote(txt))
+        api = "http://api.img4me.com/?font=comic&fcolor=000000&size=35&type=png&text={0}".format(
+            quote(txt)
+        )
         r = await self.get_text(api)
         b = await self.bytes_download(r)
         file = discord.File(b, filename="tti.png")
@@ -1071,7 +1348,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["needsmorejpeg", "jpegify", "magik2"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def jpeg(self, ctx, url:str=None, quality:int=1):
+    async def jpeg(self, ctx, url: str = None, quality: int = 1):
         """Add more JPEG to an Image\nNeeds More JPEG!"""
         if quality > 10:
             quality = 10
@@ -1105,7 +1382,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["vaporwave", "vape", "vapewave"])
     @commands.cooldown(2, 5)
-    async def vw(self, ctx, url:str, *, txt:str=None):
+    async def vw(self, ctx, url: str, *, txt: str = None):
         """Add vaporwave flavours to an image"""
         get_images = await self.get_images(ctx, urls=url, limit=1)
         if not get_images:
@@ -1119,9 +1396,11 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command(aliases=["achievement", "ach"])
-    async def mc(self, ctx, *, txt:str):
+    async def mc(self, ctx, *, txt: str):
         """Generate a Minecraft Achievement"""
-        api = "https://mcgen.herokuapp.com/a.php?i=1&h=Achievement-{0}&t={1}".format(ctx.message.author.name, txt)
+        api = "https://mcgen.herokuapp.com/a.php?i=1&h=Achievement-{0}&t={1}".format(
+            ctx.message.author.name, txt
+        )
         b = await self.bytes_download(api)
         i = 0
         while sys.getsizeof(b) == 88 and i != 10:
@@ -1137,7 +1416,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         await ctx.send(file=file)
 
     @commands.command(aliases=["wm"])
-    async def watermark(self, ctx, url:str, mark:str=None):
+    async def watermark(self, ctx, url: str, mark: str = None):
         """Add a watermark to an image"""
         try:
             check = await self.isimage(url)
@@ -1172,7 +1451,13 @@ class NotSoBot(getattr(commands, "Cog", object)):
             filename = f.f_code.co_filename
             linecache.checkcache(filename)
             line = linecache.getline(filename, lineno, f.f_globals)
-            await ctx.send(code.format("EXCEPTION IN ({}, LINE {} \"{}\"): {}".format(filename, lineno, line.strip(), exc_obj)))
+            await ctx.send(
+                code.format(
+                    'EXCEPTION IN ({}, LINE {} "{}"): {}'.format(
+                        filename, lineno, line.strip(), exc_obj
+                    )
+                )
+            )
 
     def do_glitch(self, b, amount, seed, iterations):
         b.seek(0)
@@ -1198,7 +1483,9 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["jpglitch"])
     @commands.cooldown(2, 5)
-    async def glitch(self, ctx, url:str=None, iterations:int=None, amount:int=None, seed:int=None):
+    async def glitch(
+        self, ctx, url: str = None, iterations: int = None, amount: int = None, seed: int = None
+    ):
         """Glitch a gif or png"""
         try:
             if iterations is None:
@@ -1223,9 +1510,16 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     img = PIL.Image.open(b)
                     b = BytesIO()
                     img.save(b, format="JPEG")
-                    final = await self.bot.loop.run_in_executor(None, self.do_glitch, b, amount, seed, iterations)
+                    final = await self.bot.loop.run_in_executor(
+                        None, self.do_glitch, b, amount, seed, iterations
+                    )
                     file = discord.File(final, filename="glitch.jpeg")
-                    await ctx.send("Iterations: `{0}` | Amount: `{1}` | Seed: `{2}`".format(iterations, amount, seed), file=file)
+                    await ctx.send(
+                        "Iterations: `{0}` | Amount: `{1}` | Seed: `{2}`".format(
+                            iterations, amount, seed
+                        ),
+                        file=file,
+                    )
                 else:
                     final = await self.bot.loop.run_in_executor(None, self.do_gglitch, b)
                     file = discord.File(final, filename="glitch.gif")
@@ -1235,16 +1529,107 @@ class NotSoBot(getattr(commands, "Cog", object)):
             return
 
     @commands.command()
-    async def glitch2(self, ctx, *urls:str):
+    async def glitch2(self, ctx, *urls: str):
         """Glitch a jpegs"""
         try:
             get_images = await self.get_images(ctx, urls=urls)
             if not get_images:
                 return
             for url in get_images:
-                path = str(bundled_data_path(self))+"/"+self.random(True)
+                path = str(bundled_data_path(self)) + "/" + self.random(True)
                 await self.download(url, path)
-                args = ["convert", "(", path, "-resize", "1024x1024>", ")", "-alpha", "on", "(", "-clone", "0", "-channel", "RGB", "-separate", "-channel", "A", "-fx", "0", "-compose", "CopyOpacity", "-composite", ")", "(", "-clone", "0", "-roll", "+5", "-channel", "R", "-fx", "0", "-channel", "A", "-evaluate", "multiply", ".3", ")", "(", "-clone", "0", "-roll", "-5", "-channel", "G", "-fx", "0", "-channel", "A", "-evaluate", "multiply", ".3", ")", "(", "-clone", "0", "-roll", "+0+5", "-channel", "B", "-fx", "0", "-channel", "A", "-evaluate", "multiply", ".3", ")", "(", "-clone", "0", "-channel", "A", "-fx", "0", ")", "-delete", "0", "-background", "none", "-compose", "SrcOver", "-layers", "merge", "-rotate", "90", "-wave", "1x5", "-rotate", "-90", path]
+                args = [
+                    "convert",
+                    "(",
+                    path,
+                    "-resize",
+                    "1024x1024>",
+                    ")",
+                    "-alpha",
+                    "on",
+                    "(",
+                    "-clone",
+                    "0",
+                    "-channel",
+                    "RGB",
+                    "-separate",
+                    "-channel",
+                    "A",
+                    "-fx",
+                    "0",
+                    "-compose",
+                    "CopyOpacity",
+                    "-composite",
+                    ")",
+                    "(",
+                    "-clone",
+                    "0",
+                    "-roll",
+                    "+5",
+                    "-channel",
+                    "R",
+                    "-fx",
+                    "0",
+                    "-channel",
+                    "A",
+                    "-evaluate",
+                    "multiply",
+                    ".3",
+                    ")",
+                    "(",
+                    "-clone",
+                    "0",
+                    "-roll",
+                    "-5",
+                    "-channel",
+                    "G",
+                    "-fx",
+                    "0",
+                    "-channel",
+                    "A",
+                    "-evaluate",
+                    "multiply",
+                    ".3",
+                    ")",
+                    "(",
+                    "-clone",
+                    "0",
+                    "-roll",
+                    "+0+5",
+                    "-channel",
+                    "B",
+                    "-fx",
+                    "0",
+                    "-channel",
+                    "A",
+                    "-evaluate",
+                    "multiply",
+                    ".3",
+                    ")",
+                    "(",
+                    "-clone",
+                    "0",
+                    "-channel",
+                    "A",
+                    "-fx",
+                    "0",
+                    ")",
+                    "-delete",
+                    "0",
+                    "-background",
+                    "none",
+                    "-compose",
+                    "SrcOver",
+                    "-layers",
+                    "merge",
+                    "-rotate",
+                    "90",
+                    "-wave",
+                    "1x5",
+                    "-rotate",
+                    "-90",
+                    path,
+                ]
                 await self.run_process(args)
                 file = discord.File(path, filename="glitch2.png")
                 await ctx.send(file=file)
@@ -1280,14 +1665,18 @@ class NotSoBot(getattr(commands, "Cog", object)):
                     continue
                 bg = (0, 0, 0)
                 img = PIL.Image.open(b)
-                img = img.resize((int(img.size[0]/pixels), int(img.size[1]/pixels)), PIL.Image.NEAREST)
-                img = img.resize((int(img.size[0]*pixels), int(img.size[1]*pixels)), PIL.Image.NEAREST)
+                img = img.resize(
+                    (int(img.size[0] / pixels), int(img.size[1] / pixels)), PIL.Image.NEAREST
+                )
+                img = img.resize(
+                    (int(img.size[0] * pixels), int(img.size[1] * pixels)), PIL.Image.NEAREST
+                )
                 load = img.load()
                 for i in range(0, img.size[0], pixels):
                     for j in range(0, img.size[1], pixels):
                         for r in range(pixels):
-                            load[i+r, j] = bg
-                            load[i, j+r] = bg
+                            load[i + r, j] = bg
+                            load[i, j + r] = bg
                 final = BytesIO()
                 img.save(final, "png")
                 final.seek(0)
@@ -1301,19 +1690,21 @@ class NotSoBot(getattr(commands, "Cog", object)):
     async def do_retro(self, text, bcg):
         if "|" not in text:
             if len(text) >= 15:
-                text = [text[i:i + 15] for i in range(0, len(text), 15)]
+                text = [text[i : i + 15] for i in range(0, len(text), 15)]
             else:
                 split = text.split()
                 if len(split) == 1:
                     text = [x for x in text]
                     if len(text) == 4:
-                        text[2] = text[2]+text[-1]
+                        text[2] = text[2] + text[-1]
                         del text[3]
                 else:
                     text = split
         else:
             text = text.split("|")
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:43.0) Gecko/20100101 Firefox/43.0"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:43.0) Gecko/20100101 Firefox/43.0"
+        }
         payload = aiohttp.FormData()
         payload.add_field("current-category", "all_effects")
         payload.add_field("bcg", bcg)
@@ -1322,10 +1713,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
         for s in text:
             if count > 3:
                 break
-            payload.add_field("text"+str(count), s.replace("'", "\""))
+            payload.add_field("text" + str(count), s.replace("'", '"'))
             count += 1
         try:
-            async with self.session.post("https://photofunia.com/effects/retro-wave?guild=3", data=payload, headers=headers) as r:
+            async with self.session.post(
+                "https://photofunia.com/effects/retro-wave?guild=3", data=payload, headers=headers
+            ) as r:
                 txt = await r.text()
         except:
             return
@@ -1337,7 +1730,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         return False
 
     @commands.command()
-    async def retro(self, ctx, *, text:str):
+    async def retro(self, ctx, *, text: str):
         """Create a retro looking image"""
         retro_result = await self.do_retro(text, "5")
         if retro_result is False:
@@ -1347,7 +1740,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command()
-    async def retro2(self, ctx, *, text:str):
+    async def retro2(self, ctx, *, text: str):
         """Create a retro looking image"""
         retro_result = await self.do_retro(text, "2")
         if retro_result is False:
@@ -1357,7 +1750,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command()
-    async def retro3(self, ctx, *, text:str):
+    async def retro3(self, ctx, *, text: str):
         """Create a retro looking image"""
         retro_result = await self.do_retro(text, "4")
         if retro_result is False:
@@ -1371,7 +1764,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         f2 = BytesIO()
         with wand.image.Image(file=b, format="png") as img:
             h1 = img.clone()
-            width = int(img.width/2) if int(img.width/2) > 0 else 1
+            width = int(img.width / 2) if int(img.width / 2) > 0 else 1
             h1.crop(width=width, height=int(img.height), gravity="east")
             h2 = h1.clone()
             h1.rotate(degree=180)
@@ -1390,10 +1783,10 @@ class NotSoBot(getattr(commands, "Cog", object)):
         final.seek(0)
         return final
 
-    #Thanks to Iguniisu#9746 for the idea
+    # Thanks to Iguniisu#9746 for the idea
     @commands.command(aliases=["magik3", "mirror"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def waaw(self, ctx, *urls:str):
+    async def waaw(self, ctx, *urls: str):
         """Mirror an image vertically right to left"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
@@ -1434,7 +1827,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["magik4", "mirror2"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def haah(self, ctx, *urls:str):
+    async def haah(self, ctx, *urls: str):
         """Mirror an image vertically left to right"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
@@ -1456,7 +1849,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         with wand.image.Image(file=b, format="png") as img:
             h1 = img.clone()
             width = int(img.width) if int(img.width) > 0 else 1
-            h1.crop(width=width, height=int(img.height/2), gravity="north")
+            h1.crop(width=width, height=int(img.height / 2), gravity="north")
             h2 = h1.clone()
             h2.rotate(degree=180)
             h2.flop()
@@ -1476,7 +1869,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["magik5", "mirror3"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def woow(self, ctx, *urls:str):
+    async def woow(self, ctx, *urls: str):
         """Mirror an image horizontally top to bottom"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
@@ -1498,7 +1891,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
         with wand.image.Image(file=b, format="png") as img:
             h1 = img.clone()
             width = int(img.width) if int(img.width) > 0 else 1
-            h1.crop(width=width, height=int(img.height/2), gravity="south")
+            h1.crop(width=width, height=int(img.height / 2), gravity="south")
             h2 = h1.clone()
             h1.rotate(degree=180)
             h2.flop()
@@ -1518,7 +1911,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
 
     @commands.command(aliases=["magik6", "mirror4"])
     @commands.cooldown(2, 5, commands.BucketType.user)
-    async def hooh(self, ctx, *urls:str):
+    async def hooh(self, ctx, *urls: str):
         """Mirror an image horizontally bottom to top"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
@@ -1535,12 +1928,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command()
-    async def flipimg(self, ctx, *urls:str):
+    async def flipimg(self, ctx, *urls: str):
         """Rotate an image 180 degrees"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
             return
-        for url in get_images:      
+        for url in get_images:
             b = await self.bytes_download(url)
             img = PIL.Image.open(b)
             img = PIL.ImageOps.flip(img)
@@ -1551,12 +1944,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command()
-    async def flop(self, ctx, *urls:str):
+    async def flop(self, ctx, *urls: str):
         """Flip an image"""
         get_images = await self.get_images(ctx, urls=urls, limit=5)
         if not get_images:
             return
-        for url in get_images:      
+        for url in get_images:
             b = await self.bytes_download(url)
             img = PIL.Image.open(b)
             img = PIL.ImageOps.mirror(img)
@@ -1567,12 +1960,12 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command(aliases=["inverse", "negate"])
-    async def invert(self, ctx, *url:str):
+    async def invert(self, ctx, *url: str):
         """Invert the colours of an image"""
         get_images = await self.get_images(ctx, urls=url, limit=3)
         if not get_images:
             return
-        for url in get_images:      
+        for url in get_images:
             b = await self.bytes_download(url)
             img = PIL.Image.open(b).convert("RGB")
             img = PIL.ImageOps.invert(img)
@@ -1583,7 +1976,7 @@ class NotSoBot(getattr(commands, "Cog", object)):
             await ctx.send(file=file)
 
     @commands.command()
-    async def rotate(self, ctx, degrees:int=90, *urls:str):
+    async def rotate(self, ctx, degrees: int = 90, *urls: str):
         """Rotate image X degrees"""
         get_images = await self.get_images(ctx, urls=urls, limit=3, scale=360)
         if not get_images:

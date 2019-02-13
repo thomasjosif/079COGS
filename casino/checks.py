@@ -20,10 +20,10 @@ class Checks:
         return self.ctx.author == m.author
 
     def cancel(self, m):
-        return m.content.lower() == (self.ctx.prefix + 'cancel')
+        return m.content.lower() == (self.ctx.prefix + "cancel")
 
     def confirm(self, m):
-        return self.same(m) and m.content.lower() in ('yes', 'no') or self.cancel(m)
+        return self.same(m) and m.content.lower() in ("yes", "no") or self.cancel(m)
 
     def valid_int(self, m):
         return self.same(m) and m.content.isdigit() or self.cancel(m)
@@ -42,8 +42,11 @@ class Checks:
         return self.same(m) and m.content in roles or self.cancel(m)
 
     def member(self, m):
-        return (self.same(m) and m.content in [x.name for x in self.ctx.guild.members]
-                or self.cancel(m))
+        return (
+            self.same(m)
+            and m.content in [x.name for x in self.ctx.guild.members]
+            or self.cancel(m)
+        )
 
     def length_under(self, m):
         try:

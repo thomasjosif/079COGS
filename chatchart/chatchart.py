@@ -83,7 +83,7 @@ class Chatchart(commands.Cog):
         """
         Generates a pie chart, representing the last 5000 messages in the specified channel.
         """
-        e = discord.Embed(description="Loading...", colour=0x00ccff)
+        e = discord.Embed(description="Loading...", colour=0x00CCFF)
         e.set_thumbnail(url="https://i.imgur.com/vSp4xRk.gif")
         em = await ctx.send(embed=e)
 

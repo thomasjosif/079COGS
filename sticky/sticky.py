@@ -42,8 +42,7 @@ class Sticky(commands.Cog):
         """Event which checks for sticky messages to resend."""
         channel = message.channel
         early_exit = (
-            isinstance(channel, discord.abc.PrivateChannel)
-            or channel in self.locked_channels
+            isinstance(channel, discord.abc.PrivateChannel) or channel in self.locked_channels
         )
         if early_exit:
             return
@@ -115,9 +114,7 @@ class Sticky(commands.Cog):
         await ctx.send("Done.")
         self.locked_channels.remove(channel)
 
-    async def on_raw_message_delete(
-        self, payload: discord.raw_models.RawMessageDeleteEvent
-    ):
+    async def on_raw_message_delete(self, payload: discord.raw_models.RawMessageDeleteEvent):
         """If the stickied message was deleted, re-post it."""
         channel = self.bot.get_channel(payload.channel_id)
         settings = self.conf.channel(channel)

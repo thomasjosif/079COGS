@@ -18,15 +18,13 @@ class MsgVote(commands.Cog):
         "duration": 300,
         "threshold": 3,
         "up_emoji": None,
-        "dn_emoji": None
+        "dn_emoji": None,
     }
 
     def __init__(self, bot):
         self.bot = bot
         self.conf = Config.get_conf(self, identifier=494641511)
-        self.conf.register_global(
-            **self.default_global_settings
-        )
+        self.conf.register_global(**self.default_global_settings)
         # Odd bug, default emojis don't work if not set in this way
         # Has something to do with the way the emoji characters are grabbed
         # from the default dict
@@ -112,8 +110,10 @@ class MsgVote(commands.Cog):
 
         if duration > 0:
             await self.conf.duration.set(duration)
-            await ctx.send("I will monitor each message's votes until it "
-                           "is {} seconds old.".format(duration))
+            await ctx.send(
+                "I will monitor each message's votes until it "
+                "is {} seconds old.".format(duration)
+            )
         else:
             await ctx.send("Invalid duration. Must be a positive integer.")
 
@@ -123,22 +123,23 @@ class MsgVote(commands.Cog):
         Must be a positive integer. Or, set to 0 to disable deletion."""
 
         if threshold < 0:
-            await ctx.send("Invalid threshold. Must be a positive "
-                           "integer, or 0 to disable.")
+            await ctx.send("Invalid threshold. Must be a positive " "integer, or 0 to disable.")
         elif threshold == 0:
             await self.conf.threshold.set(threshold)
             await ctx.send("Message deletion disabled.")
         else:
             await self.conf.threshold.set(threshold)
-            await ctx.send("Messages will be deleted if [downvotes - "
-                           "upvotes] reaches {}.".format(threshold))
+            await ctx.send(
+                "Messages will be deleted if [downvotes - "
+                "upvotes] reaches {}.".format(threshold)
+            )
 
     def fix_custom_emoji(self, emoji):
         if emoji[:2] != "<:":
             return emoji
         for guild in self.bot.guilds:
             for e in guild.emojis:
-                if str(e.id) == emoji.split(':')[2][:-1]:
+                if str(e.id) == emoji.split(":")[2][:-1]:
                     return e
         return None
 
@@ -196,6 +197,8 @@ class MsgVote(commands.Cog):
             try:
                 await message.delete()
             except discord.errors.Forbidden:
-                await message.channel.send("I require the 'Manage "
-                                           "Messages' permission to delete "
-                                           "downvoted messages!")
+                await message.channel.send(
+                    "I require the 'Manage "
+                    "Messages' permission to delete "
+                    "downvoted messages!"
+                )

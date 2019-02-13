@@ -10,9 +10,7 @@ class StickyRoles(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(
-            self, identifier=78631113035100160, force_registration=True
-        )
+        self.config = Config.get_conf(self, identifier=78631113035100160, force_registration=True)
         self.config.register_member(roles=[])
         self.config.register_role(sticky=False)
 

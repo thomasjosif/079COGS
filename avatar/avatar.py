@@ -15,7 +15,7 @@ def process_avatar(url):
         new_url = re.sub("\?size\=\d+.*", "?size=2048", url)
         return new_url
     else:
-        new_url = url.replace('.webp', '.png')
+        new_url = url.replace(".webp", ".png")
         return new_url
 
 
@@ -23,7 +23,7 @@ class Avatar(commands.Cog):
     """Get user's avatar URL."""
 
     @commands.command()
-    async def avatar(self, ctx, *, user: discord.Member=None):
+    async def avatar(self, ctx, *, user: discord.Member = None):
         """Returns user avatar URL.
         
         User argument can be user mention, nickname, username, user ID.

@@ -2,6 +2,6 @@ from enum import Enum
 
 
 class WhisperType(Enum):
-  OFF = 'off'
-  ONLY = 'only'
-  BOTH = 'both'
+    OFF = "off"
+    ONLY = "only"
+    BOTH = "both"

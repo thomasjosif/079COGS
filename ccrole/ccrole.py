@@ -115,9 +115,7 @@ class CCRole(Cog):
                 return
 
         # Selfrole
-        await ctx.send(
-            "Is this a targeted command?(yes/no)\nNo will make this a selfrole command"
-        )
+        await ctx.send("Is this a targeted command?(yes/no)\nNo will make this a selfrole command")
 
         try:
             answer = await self.bot.wait_for("message", timeout=120, check=check)

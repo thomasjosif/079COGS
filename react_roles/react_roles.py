@@ -11,7 +11,11 @@ import hashlib
 import collections
 
 from redbot.core import commands
-from discord.raw_models import RawReactionActionEvent, RawMessageDeleteEvent, RawBulkMessageDeleteEvent
+from discord.raw_models import (
+    RawReactionActionEvent,
+    RawMessageDeleteEvent,
+    RawBulkMessageDeleteEvent,
+)
 from redbot.core import Config, checks
 from redbot.core.config import Group
 from redbot.core.bot import Red
@@ -26,11 +30,14 @@ class ReactRoles(BaseCog):
     """Associate emojis on messages with roles to gain/lose roles when clicking on reactions
 
     RedBot V3 edition"""
+
     __author__ = "ZeLarpMaster#0818"
 
     # Behavior related constants
     MAXIMUM_PROCESSED_PER_SECOND = 5
-    PROCESSING_WAIT_TIME = 0 if MAXIMUM_PROCESSED_PER_SECOND == 0 else 1 / MAXIMUM_PROCESSED_PER_SECOND
+    PROCESSING_WAIT_TIME = (
+        0 if MAXIMUM_PROCESSED_PER_SECOND == 0 else 1 / MAXIMUM_PROCESSED_PER_SECOND
+    )
     EMOTE_REGEX = re.compile("<a?:[a-zA-Z0-9_]{2,32}:(\d{1,20})>")
     MESSAGE_GROUP = "MESSAGE"
 
@@ -42,7 +49,10 @@ class ReactRoles(BaseCog):
         self.previous_locale = None
         self.reload_translations()
         # force_registration is for weaklings
-        unique_id = int(hashlib.sha512((self.__author__ + "@" + self.__class__.__name__).encode()).hexdigest(), 16)
+        unique_id = int(
+            hashlib.sha512((self.__author__ + "@" + self.__class__.__name__).encode()).hexdigest(),
+            16,
+        )
         self.config = Config.get_conf(self, identifier=unique_id)
         self.config.register_guild(links={})
         self.role_queue = asyncio.Queue()
@@ -104,10 +114,16 @@ class ReactRoles(BaseCog):
                             role = discord.utils.get(channel.guild.roles, id=role_id)
                             if role is not None:
                                 self.add_to_message_cache(channel.id, msg.id, msg)
-                                self.add_to_cache(channel.guild.id, channel.id, msg.id, emoji_str, role)
-                                counter.update((channel.name, ))
+                                self.add_to_cache(
+                                    channel.guild.id, channel.id, msg.id, emoji_str, role
+                                )
+                                counter.update((channel.name,))
                     else:
-                        self.warn(lambda: self.LOG_MESSAGE_NOT_FOUND, msg_id=msg_id, channel=channel.mention)
+                        self.warn(
+                            lambda: self.LOG_MESSAGE_NOT_FOUND,
+                            msg_id=msg_id,
+                            channel=channel.mention,
+                        )
             else:
                 self.warn(lambda: self.LOG_CHANNEL_NOT_FOUND, channel_id=channel_id)
 
@@ -122,7 +138,10 @@ class ReactRoles(BaseCog):
             else:
                 self.warn(lambda: self.LOG_SERVER_NOT_FOUND, guild_id=guild_id)
 
-        self.info(lambda: self.LOG_BINDINGS, bindings=", ".join(": ".join(map(str, pair)) for pair in counter.items()))
+        self.info(
+            lambda: self.LOG_BINDINGS,
+            bindings=", ".join(": ".join(map(str, pair)) for pair in counter.items()),
+        )
 
     # Commands
     @commands.group(name="roles", invoke_without_command=True)
@@ -204,10 +223,16 @@ class ReactRoles(BaseCog):
         if len(invalid_pairs) > 0:
             confimation_msg += self.LINK_PAIR_INVALID.format(", ".join(invalid_pairs)) + "\n"
         if len(channels_not_found) > 0:
-            confimation_msg += self.LINK_CHANNEL_NOT_FOUND.format(", ".join(channels_not_found)) + "\n"
+            confimation_msg += (
+                self.LINK_CHANNEL_NOT_FOUND.format(", ".join(channels_not_found)) + "\n"
+            )
         if len(messages_not_found) > 0:
-            confimation_msg += self.LINK_MESSAGE_NOT_FOUND.format(
-                ", ".join("{} in <#{}>".format(p[0], p[1]) for p in messages_not_found)) + "\n"
+            confimation_msg += (
+                self.LINK_MESSAGE_NOT_FOUND.format(
+                    ", ".join("{} in <#{}>".format(p[0], p[1]) for p in messages_not_found)
+                )
+                + "\n"
+            )
         if len(confimation_msg) > 0:
             response = self.LINK_FAILED + confimation_msg
         else:
@@ -225,8 +250,15 @@ class ReactRoles(BaseCog):
     @_roles.command(name="add")
     @commands.guild_only()
     @checks.mod_or_permissions(manage_roles=True)
-    async def _roles_add(self, ctx: Context, message_id: int, channel: discord.TextChannel, emoji, *,
-                         role: discord.Role):
+    async def _roles_add(
+        self,
+        ctx: Context,
+        message_id: int,
+        channel: discord.TextChannel,
+        emoji,
+        *,
+        role: discord.Role
+    ):
         """Add a role on a message
 
         `message_id` must be found in `channel`
@@ -273,14 +305,17 @@ class ReactRoles(BaseCog):
                         self.add_to_message_cache(channel.id, message_id, message)
                         self.add_to_cache(guild.id, channel.id, message_id, emoji_id, role)
                         await msg_conf.get_attr(emoji_id).set(role.id)
-                        response = self.ROLE_SUCCESSFULLY_BOUND.format(emoji or emoji_id, channel.mention)
+                        response = self.ROLE_SUCCESSFULLY_BOUND.format(
+                            emoji or emoji_id, channel.mention
+                        )
         await ctx.send(response)
 
     @_roles.command(name="remove")
     @commands.guild_only()
     @checks.mod_or_permissions(manage_roles=True)
-    async def _roles_remove(self, ctx: Context, message_id: int, channel: discord.TextChannel, *,
-                            role: discord.Role):
+    async def _roles_remove(
+        self, ctx: Context, message_id: int, channel: discord.TextChannel, *, role: discord.Role
+    ):
         """Remove a role from a message
 
         `message_id` must be found in `channel` and be bound to `role`
@@ -302,7 +337,9 @@ class ReactRoles(BaseCog):
                 await ctx.send(self.ROLE_UNBOUND + self.MESSAGE_NOT_FOUND)
             else:
                 reaction = discord.utils.find(
-                    lambda r: r.emoji.id == emoji_str if r.custom_emoji else r.emoji == emoji_str, msg.reactions)
+                    lambda r: r.emoji.id == emoji_str if r.custom_emoji else r.emoji == emoji_str,
+                    msg.reactions,
+                )
                 if reaction is None:
                     await ctx.send(self.ROLE_UNBOUND + self.REACTION_NOT_FOUND)
                 else:
@@ -315,7 +352,9 @@ class ReactRoles(BaseCog):
                             await msg.remove_reaction(reaction.emoji, user)
                             count += 1
                         after = user
-                        await answer.edit(content=self.PROGRESS_REMOVED.format(count, reaction.count))
+                        await answer.edit(
+                            content=self.PROGRESS_REMOVED.format(count, reaction.count)
+                        )
                     await answer.edit(content=self.REACTION_CLEAN_DONE.format(count))
 
     @_roles.command(name="check")
@@ -338,9 +377,15 @@ class ReactRoles(BaseCog):
                 progress_msg = await ctx.send(self.INITIALIZING)
                 given_roles = 0
                 checked_count = 0
-                total_count = sum(map(lambda r: r.count, msg.reactions)) - len(msg.reactions)  # Remove the bot's
+                total_count = sum(map(lambda r: r.count, msg.reactions)) - len(
+                    msg.reactions
+                )  # Remove the bot's
                 total_reactions = 0
-                for react in msg.reactions:  # Go through all reactions on the message and add the roles if needed
+                for (
+                    react
+                ) in (
+                    msg.reactions
+                ):  # Go through all reactions on the message and add the roles if needed
                     total_reactions += 1
                     emoji_str = str(react.emoji.id) if react.custom_emoji else react.emoji
                     role = self.get_from_cache(guild.id, channel.id, message_id, emoji_str)
@@ -352,22 +397,35 @@ class ReactRoles(BaseCog):
                             before = after
                             async for user in react.users(after=after):
                                 member = guild.get_member(user.id)
-                                if member is not None and member != self.bot.user and \
-                                        discord.utils.get(member.roles, id=role.id) is None:
+                                if (
+                                    member is not None
+                                    and member != self.bot.user
+                                    and discord.utils.get(member.roles, id=role.id) is None
+                                ):
                                     await member.add_roles(role)
                                     given_roles += 1
                                 checked_count += 1
                             after = user
-                            await progress_msg.edit(content=self.PROGRESS_FORMAT.format(
-                                c=checked_count, r=total_count, t=total_reactions))
+                            await progress_msg.edit(
+                                content=self.PROGRESS_FORMAT.format(
+                                    c=checked_count, r=total_count, t=total_reactions
+                                )
+                            )
                     else:
                         checked_count += react.count
-                        await progress_msg.edit(content=self.PROGRESS_FORMAT.format(
-                            c=checked_count, r=total_count, t=total_reactions))
-                await progress_msg.edit(content=self.PROGRESS_COMPLETE_FORMAT.format(c=checked_count, g=given_roles))
+                        await progress_msg.edit(
+                            content=self.PROGRESS_FORMAT.format(
+                                c=checked_count, r=total_count, t=total_reactions
+                            )
+                        )
+                await progress_msg.edit(
+                    content=self.PROGRESS_COMPLETE_FORMAT.format(c=checked_count, g=given_roles)
+                )
 
     # Utilities
-    async def check_add_role(self, emoji: discord.PartialEmoji, message_id: int, channel_id: int, user_id: int):
+    async def check_add_role(
+        self, emoji: discord.PartialEmoji, message_id: int, channel_id: int, user_id: int
+    ):
         message = self.get_from_message_cache(channel_id, message_id)
         if message is not None:
             guild = message.guild
@@ -375,14 +433,22 @@ class ReactRoles(BaseCog):
             role = self.get_from_cache(guild.id, channel_id, message_id, emoji_str)
             member = guild.get_member(user_id)
             if member is not None and member != guild.me and role is not None:
-                await self.add_role_queue(member, role, True,
-                                          linked_roles=self.get_link(guild.id, channel_id, message_id))
+                await self.add_role_queue(
+                    member,
+                    role,
+                    True,
+                    linked_roles=self.get_link(guild.id, channel_id, message_id),
+                )
 
-    async def check_remove_role(self, emoji: discord.PartialEmoji, message_id: int, channel_id: int, user_id: int):
+    async def check_remove_role(
+        self, emoji: discord.PartialEmoji, message_id: int, channel_id: int, user_id: int
+    ):
         message = self.get_from_message_cache(channel_id, message_id)
         if message is not None:
             guild = message.guild
-            if user_id == guild.me.id:  # Safeguard in case a mod removes the bot's reaction by accident
+            if (
+                user_id == guild.me.id
+            ):  # Safeguard in case a mod removes the bot's reaction by accident
                 await message.add_reaction(emoji)
             else:
                 emoji_str = str(emoji.id) if emoji.is_custom_emoji() else emoji.name
@@ -396,7 +462,9 @@ class ReactRoles(BaseCog):
         channel = message.channel
         # Remove the message's config
         message_conf = self.get_message_config(channel.id, message.id)
-        if await message_conf(...) is not ...:  # Because for whatever reason this returns {} instead of None
+        if (
+            await message_conf(...) is not ...
+        ):  # Because for whatever reason this returns {} instead of None
             await message_conf.clear()
         # And the caches
         self.remove_from_message_cache(channel.id, message.id)
@@ -411,8 +479,14 @@ class ReactRoles(BaseCog):
                 if pair in links:
                     links.remove(pair)
 
-    async def add_role_queue(self, member: discord.Member, role: discord.Role, add_bool: bool, *,
-                             linked_roles: set=set()):
+    async def add_role_queue(
+        self,
+        member: discord.Member,
+        role: discord.Role,
+        add_bool: bool,
+        *,
+        linked_roles: set = set()
+    ):
         key = "{}_{}".format(member.guild.id, member.id)
         q = self.role_map.get(key)
         if q is None:  # True --> add   False --> remove
@@ -420,12 +494,16 @@ class ReactRoles(BaseCog):
             q = {True: set(), False: {member.guild.default_role}, "mem": member}
             await self.role_queue.put(key)
         q[True].difference_update(linked_roles)  # Remove the linked roles from the roles to add
-        q[False].update(linked_roles)  # Add the linked roles to remove them if the user has any of them
+        q[False].update(
+            linked_roles
+        )  # Add the linked roles to remove them if the user has any of them
         q[not add_bool] -= {role}
         q[add_bool] |= {role}
         self.role_map[key] = q
 
-    async def process_role_queue(self):  # This exists to update multiple roles at once when possible
+    async def process_role_queue(
+        self
+    ):  # This exists to update multiple roles at once when possible
         """Loops until the cog is unloaded and processes the role assignments when it can"""
         await self.bot.wait_until_ready()
         while self == self.bot.get_cog(self.__class__.__name__):
@@ -449,8 +527,9 @@ class ReactRoles(BaseCog):
         self.info(lambda: self.LOG_PROCESSING_LOOP_ENDED)
 
     # Utilities
-    async def safe_get_message(self, channel: discord.TextChannel, message_id: typing.Union[str, int]) \
-            -> typing.Optional[discord.Message]:
+    async def safe_get_message(
+        self, channel: discord.TextChannel, message_id: typing.Union[str, int]
+    ) -> typing.Optional[discord.Message]:
         try:
             result = await channel.get_message(message_id)
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
@@ -469,7 +548,9 @@ class ReactRoles(BaseCog):
             role_list = set()
             for entry in link:
                 channel_id, message_id = entry.split("_", 1)
-                role_list.update(self.get_all_roles_from_message(server_id, int(channel_id), int(message_id)))
+                role_list.update(
+                    self.get_all_roles_from_message(server_id, int(channel_id), int(message_id))
+                )
                 link_dict[entry] = role_list
         self.links[server_id] = link_dict
 
@@ -483,22 +564,34 @@ class ReactRoles(BaseCog):
             del entries[name]
 
     # Cache -- Needed to keep the actual role object in cache instead of looking for it every time in the server's roles
-    def add_to_cache(self, server_id: int, channel_id: int, message_id: int, emoji_str: str, role: discord.Role):
+    def add_to_cache(
+        self, server_id: int, channel_id: int, message_id: int, emoji_str: str, role: discord.Role
+    ):
         """Adds an entry to the role cache"""
-        self.role_cache.setdefault(server_id, {}) \
-            .setdefault(channel_id, {}) \
-            .setdefault(message_id, {})[emoji_str] = role
+        self.role_cache.setdefault(server_id, {}).setdefault(channel_id, {}).setdefault(
+            message_id, {}
+        )[emoji_str] = role
 
-    def get_all_roles_from_message(self, server_id: int, channel_id: int, message_id: int) \
-            -> typing.Iterable[discord.Role]:
+    def get_all_roles_from_message(
+        self, server_id: int, channel_id: int, message_id: int
+    ) -> typing.Iterable[discord.Role]:
         """Fetches all roles from a given message returns an iterable"""
         return self.role_cache.get(server_id, {}).get(channel_id, {}).get(message_id, {}).values()
 
-    def get_from_cache(self, server_id: int, channel_id: int, message_id: int, emoji_str: str) -> discord.Role:
+    def get_from_cache(
+        self, server_id: int, channel_id: int, message_id: int, emoji_str: str
+    ) -> discord.Role:
         """Fetches the role associated with an emoji on the given message"""
-        return self.role_cache.get(server_id, {}).get(channel_id, {}).get(message_id, {}).get(emoji_str)
+        return (
+            self.role_cache.get(server_id, {})
+            .get(channel_id, {})
+            .get(message_id, {})
+            .get(emoji_str)
+        )
 
-    def remove_role_from_cache(self, server_id: int, channel_id: int, message_id: int, emoji_str: str):
+    def remove_role_from_cache(
+        self, server_id: int, channel_id: int, message_id: int, emoji_str: str
+    ):
         """Removes an entry from the role cache"""
         server_conf = self.role_cache.get(server_id)
         if server_conf is not None:
@@ -550,16 +643,24 @@ class ReactRoles(BaseCog):
 
         # Message constants
         self.PROGRESS_FORMAT = _("Checked {c} out of {r} reactions out of {t} emojis.")
-        self.PROGRESS_COMPLETE_FORMAT = _(""":white_check_mark: Completed! Checked a total of {c} reactions.
-Gave a total of {g} roles.""")
+        self.PROGRESS_COMPLETE_FORMAT = _(
+            """:white_check_mark: Completed! Checked a total of {c} reactions.
+Gave a total of {g} roles."""
+        )
         self.MESSAGE_NOT_FOUND = _(":x: Message not found.")
         self.ALREADY_BOUND = _(":x: The emoji is already bound on that message.")
         self.NOT_IN_SERVER = _(":x: The channel must be in a server.")
         self.ROLE_NOT_FOUND = _(":x: Role not found on the given channel's server.")
         self.EMOJI_NOT_FOUND = _(":x: Emoji not found in any of my servers or in unicode emojis.")
-        self.CANT_ADD_REACTIONS = _(":x: I don't have the permission to add reactions in that channel.")
-        self.CANT_MANAGE_ROLES = _(":x: I don't have the permission to manage users' roles in the channel's server.")
-        self.ROLE_SUCCESSFULLY_BOUND = _(":white_check_mark: The role has been bound to {} on the message in {}.")
+        self.CANT_ADD_REACTIONS = _(
+            ":x: I don't have the permission to add reactions in that channel."
+        )
+        self.CANT_MANAGE_ROLES = _(
+            ":x: I don't have the permission to manage users' roles in the channel's server."
+        )
+        self.ROLE_SUCCESSFULLY_BOUND = _(
+            ":white_check_mark: The role has been bound to {} on the message in {}."
+        )
         self.ROLE_NOT_BOUND = _(":x: The role is not bound to that message.")
         self.INITIALIZING = _("Initializing...")
         self.ROLE_UNBOUND = _(":put_litter_in_its_place: Unbound the role on the message.\n")
@@ -572,13 +673,19 @@ Gave a total of {g} roles.""")
         self.LINK_MUST_SPECIFY = _("You must specify at least one message to be linked.")
         self.LINK_FAILED = _(":x: Failed to link reactions.\n")
         self.LINK_SUCCESSFUL = _(":white_check_mark: Successfully linked the reactions.")
-        self.LINK_NAME_TAKEN = _(":x: That link name is already used in the current server. "
-                                 "Remove it before assigning to it.")
+        self.LINK_NAME_TAKEN = _(
+            ":x: That link name is already used in the current server. "
+            "Remove it before assigning to it."
+        )
         self.UNLINK_NOT_FOUND = _(":x: Could not find a link with that name in this server.")
-        self.UNLINK_SUCCESSFUL = _(":white_check_mark: The link has been removed from this server.")
+        self.UNLINK_SUCCESSFUL = _(
+            ":white_check_mark: The link has been removed from this server."
+        )
         self.CANT_CHECK_LINKED = _(":x: Cannot run a check on linked messages.")
         self.REACTION_NOT_FOUND = _(":x: Could not find the reaction of that message.")
-        self.CANT_GIVE_ROLE = _(":x: I can't give that role! Maybe it's higher than my own highest role?")
+        self.CANT_GIVE_ROLE = _(
+            ":x: I can't give that role! Maybe it's higher than my own highest role?"
+        )
 
     def log(self, logging_func: typing.Callable, *args, **kwargs):
         self.reload_translations()
@@ -592,6 +699,8 @@ Gave a total of {g} roles.""")
 
     def inject_before_invokes(self):
         for name, value in inspect.getmembers(self, lambda o: isinstance(o, commands.Command)):
+
             async def wrapped_reload(*_):
                 self.reload_translations()
+
             value.before_invoke(wrapped_reload)
