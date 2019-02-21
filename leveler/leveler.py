@@ -3371,7 +3371,9 @@ class Leveler(commands.Cog):
         if not isinstance(self.settings["lvl_msg"], list):
             self.settings["lvl_msg"] = []
             fileIO("data/leveler/settings.json", "save", self.settings)
-
+        guild_identifier = ""  # super hacky
+        name = self._is_mention(user)  # also super hacky
+        new_level = str(userinfo["servers"][str(guild.id)]["level"])
         if str(guild.id) in self.settings["lvl_msg"]:  # if lvl msg is enabled
             # channel lock implementation
             if (
@@ -3381,8 +3383,6 @@ class Leveler(commands.Cog):
                 channel_id = self.settings["lvl_msg_lock"][str(guild.id)]
                 channel = find(lambda m: m.id == channel_id, guild.channels)
 
-            guild_identifier = ""  # super hacky
-            name = self._is_mention(user)  # also super hacky
             # private message takes precedent, of course
             if (
                 "private_lvl_msg" in self.settings
@@ -3391,49 +3391,6 @@ class Leveler(commands.Cog):
                 guild_identifier = " on {}".format(guild.name)
                 channel = user
                 name = "You"
-
-            new_level = str(userinfo["servers"][str(guild.id)]["level"])
-            # add to appropriate role if necessary
-            try:
-                guild_roles = db.roles.find_one({"guild_id": str(guild.id)})
-                if guild_roles != None:
-                    for role in guild_roles["roles"].keys():
-                        if int(guild_roles["roles"][role]["level"]) == int(new_level):
-                            role_obj = discord.utils.find(lambda r: r.name == role, guild.roles)
-                            await user.add_roles(role_obj)
-
-                            if guild_roles["roles"][role]["remove_role"] != None:
-                                remove_role_obj = discord.utils.find(
-                                    lambda r: r.name == guild_roles["roles"][role]["remove_role"],
-                                    guild.roles,
-                                )
-                                if remove_role_obj != None:
-                                    await user.remove_roles(remove_role_obj)
-            except:
-                await channel.send("Role was not set. Missing Permissions!")
-
-            # add appropriate badge if necessary
-            try:
-                guild_linked_badges = db.badgelinks.find_one({"guild_id": str(guild.id)})
-                if guild_linked_badges != None:
-                    for badge_name in guild_linked_badges["badges"]:
-                        if int(guild_linked_badges["badges"][badge_name]) == int(new_level):
-                            guild_badges = db.badges.find_one({"guild_id": str(guild.id)})
-                            if (
-                                guild_badges != None
-                                and badge_name in guild_badges["badges"].keys()
-                            ):
-                                userinfo_db = db.users.find_one({"user_id": str(str(user.id))})
-                                new_badge_name = "{}_{}".format(badge_name, str(guild.id))
-                                userinfo_db["badges"][new_badge_name] = guild_badges["badges"][
-                                    badge_name
-                                ]
-                                db.users.update_one(
-                                    {"user_id": str(str(user.id))},
-                                    {"$set": {"badges": userinfo_db["badges"]}},
-                                )
-            except:
-                await channel.send("Error. Badge was not given!")
 
             if "text_only" in self.settings and str(guild.id) in self.settings["text_only"]:
 
@@ -3451,6 +3408,45 @@ class Leveler(commands.Cog):
                     "**{} just gained a level{}!**".format(name, guild_identifier),
                     file=discord.File("data/leveler/temp/{}_level.png".format(str(user.id))),
                 )
+
+        # add to appropriate role if necessary
+        try:
+            guild_roles = db.roles.find_one({"guild_id": str(guild.id)})
+            if guild_roles != None:
+                for role in guild_roles["roles"].keys():
+                    if int(guild_roles["roles"][role]["level"]) == int(new_level):
+                        role_obj = discord.utils.find(lambda r: r.name == role, guild.roles)
+                        await user.add_roles(role_obj)
+
+                        if guild_roles["roles"][role]["remove_role"] != None:
+                            remove_role_obj = discord.utils.find(
+                                lambda r: r.name == guild_roles["roles"][role]["remove_role"],
+                                guild.roles,
+                            )
+                            if remove_role_obj != None:
+                                await user.remove_roles(remove_role_obj)
+        except:
+            await channel.send("Role was not set. Missing Permissions!")
+
+        # add appropriate badge if necessary
+        try:
+            guild_linked_badges = db.badgelinks.find_one({"guild_id": str(guild.id)})
+            if guild_linked_badges != None:
+                for badge_name in guild_linked_badges["badges"]:
+                    if int(guild_linked_badges["badges"][badge_name]) == int(new_level):
+                        guild_badges = db.badges.find_one({"guild_id": str(guild.id)})
+                        if guild_badges != None and badge_name in guild_badges["badges"].keys():
+                            userinfo_db = db.users.find_one({"user_id": str(str(user.id))})
+                            new_badge_name = "{}_{}".format(badge_name, str(guild.id))
+                            userinfo_db["badges"][new_badge_name] = guild_badges["badges"][
+                                badge_name
+                            ]
+                            db.users.update_one(
+                                {"user_id": str(str(user.id))},
+                                {"$set": {"badges": userinfo_db["badges"]}},
+                            )
+        except:
+            await channel.send("Error. Badge was not given!")
 
     async def _find_guild_rank(self, user, guild):
         targetid = str(user.id)
