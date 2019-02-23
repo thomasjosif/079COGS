@@ -1,0 +1,241 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: red-discordbot\n"
+"POT-Creation-Date: 2018-04-02 17:36+AKDT\n"
+"PO-Revision-Date: 2018-04-15 16:42-0400\n"
+"Last-Translator: Kowlin <boxedpp@gmail.com>\n"
+"Language-Team: Korean\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: ENCODING\n"
+"Generated-By: pygettext.py 1.5\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: crowdin.com\n"
+"X-Crowdin-Project: red-discordbot\n"
+"X-Crowdin-Language: ko\n"
+"X-Crowdin-File: /cogs/general/locales/messages.pot\n"
+"Language: ko_KR\n"
+
+#: ../general.py:42
+msgid "As I see it, yes"
+msgstr "내가 보기엔 그렇지!"
+
+#: ../general.py:42
+msgid "It is certain"
+msgstr "틀림없어요!"
+
+#: ../general.py:42
+msgid "It is decidedly so"
+msgstr "그건 확실히 그렇지!"
+
+#: ../general.py:43
+msgid "Most likely"
+msgstr "아마도 그럴걸?"
+
+#: ../general.py:43
+msgid "Outlook good"
+msgstr "오늘은 전망이 좋네요."
+
+#: ../general.py:43
+msgid "Signs point to yes"
+msgstr "소라고둥이 말씀하셨다! \"그래\""
+
+#: ../general.py:44
+msgid "Without a doubt"
+msgstr "틀림없어!"
+
+#: ../general.py:44
+msgid "Yes"
+msgstr "그래요!"
+
+#: ../general.py:44
+msgid "Yes – definitely"
+msgstr "그래요, 물론이죠!"
+
+#: ../general.py:44
+msgid "You may rely on it"
+msgstr "그걸 믿어도 좋아요!"
+
+#: ../general.py:45
+msgid "Ask again later"
+msgstr "나중에 다시 물어보세요!"
+
+#: ../general.py:45
+msgid "Reply hazy, try again"
+msgstr "의미심장하네요, 다시 시도해보세요."
+
+#: ../general.py:46
+msgid "Better not tell you now"
+msgstr "지금은 말해주지 않는게 좋겠어요."
+
+#: ../general.py:46
+msgid "Cannot predict now"
+msgstr "지금은 예측할 수 없죠."
+
+#: ../general.py:47
+msgid "Concentrate and ask again"
+msgstr "집중해서 다시 물어보세요."
+
+#: ../general.py:47
+msgid "Don't count on it"
+msgstr "그렇지 않을거예요."
+
+#: ../general.py:47
+msgid "My reply is no"
+msgstr "제 대답은 \"아뇨\"예요."
+
+#: ../general.py:48
+msgid "My sources say no"
+msgstr "제 진심이 말하길 \"아뇨\""
+
+#: ../general.py:48
+msgid "Outlook not so good"
+msgstr "오늘은 전망이 별로 좋지 않네요."
+
+#: ../general.py:48
+msgid "Very doubtful"
+msgstr "동작 그만, 밑장빼기냐?"
+
+#: ../general.py:64
+msgid "Not enough choices to pick from."
+msgstr "선택의 폭이 좁은걸?"
+
+#: ../general.py:78
+msgid "{} :game_die: {} :game_die:"
+msgstr "{} :game_die: {} :game_die:"
+
+#: ../general.py:81
+msgid "{} Maybe higher than 1? ;P"
+msgstr "{} 1보다 클수도 있죠? ;P"
+
+#: ../general.py:93
+msgid "Nice try. You think this is funny?\n"
+"How about *this* instead:\n\n"
+msgstr ""
+
+#: ../general.py:106
+msgid "*flips a coin and... "
+msgstr "*동전을 던지며..."
+
+#: ../general.py:106
+msgid "HEADS!*"
+msgstr "앞면!*"
+
+#: ../general.py:106
+msgid "TAILS!*"
+msgstr "뒷면!*"
+
+#: ../general.py:130
+msgid "{} You win {}!"
+msgstr "{} {} 을(를) 획득했어요!"
+
+#: ../general.py:134
+msgid "{} You lose {}!"
+msgstr "{} {} 을(를) 잃었어요!"
+
+#: ../general.py:138
+msgid "{} We're square {}!"
+msgstr "{} 우리는 사각형이에요 {}!"
+
+#: ../general.py:151
+msgid "That doesn't look like a question."
+msgstr "그건 질문으로 보이지 않아요."
+
+#: ../general.py:159
+msgid " Stopwatch started!"
+msgstr "스톱워치가 시작됐어요!"
+
+#: ../general.py:163
+msgid " Stopwatch stopped! Time: **"
+msgstr "스톱워치가 멈췄어요! 시간 : **"
+
+#: ../general.py:216 ../general.py:217
+msgid "{}\n"
+"({} days ago)"
+msgstr "{}\n"
+"({} 일 전에)"
+
+#: ../general.py:219
+msgid "Chilling in {} status"
+msgstr "{} 상태로 오싹해졌어요."
+
+#: ../general.py:223
+msgid "Playing {}"
+msgstr "재생 중 {}"
+
+#: ../general.py:225
+msgid "Streaming [{}]({})"
+msgstr "실시간 스트리밍 [{}]({})"
+
+#: ../general.py:227
+msgid "Listening to {}"
+msgstr "듣는 중 {}"
+
+#: ../general.py:229
+msgid "Watching {}"
+msgstr "보는 중 {}"
+
+#: ../general.py:234
+msgid "None"
+msgstr "읎어요."
+
+#: ../general.py:237
+msgid "Joined Discord on"
+msgstr "가입된 디스코드 켜짐"
+
+#: ../general.py:238
+msgid "Joined this guild on"
+msgstr "이 길드에 가입된"
+
+#: ../general.py:239 ../general.py:286
+msgid "Roles"
+msgstr "역할"
+
+#: ../general.py:240
+msgid "Member #{} | User ID: {}"
+msgstr "멤버 # {} | 사용자 ID : {}"
+
+#: ../general.py:257 ../general.py:299
+msgid "I need the `Embed links` permission to send this."
+msgstr "이걸 보내려면 'Embed links' 권한이 필요해요."
+
+#: ../general.py:272
+msgid "Since {}. That's over {} days ago!"
+msgstr "{} 이후, 그건 {} 일 전의 일이에요!"
+
+#: ../general.py:282
+msgid "Region"
+msgstr "지역"
+
+#: ../general.py:283
+msgid "Users"
+msgstr "사용자"
+
+#: ../general.py:284
+msgid "Text Channels"
+msgstr "텍스트 채널"
+
+#: ../general.py:285
+msgid "Voice Channels"
+msgstr "음성 채널"
+
+#: ../general.py:287
+msgid "Owner"
+msgstr "주인님"
+
+#: ../general.py:288
+msgid "Guild ID: "
+msgstr "길드 ID :"
+
+#: ../general.py:343
+msgid "Your search terms gave no results."
+msgstr "검색 조건에서 검색 결과가 없어요."
+
+#: ../general.py:345
+msgid "There is no definition #{}"
+msgstr "정의 #{} 이(가) 없어요."
+
+#: ../general.py:347
+msgid "Error."
+msgstr "에러."
+
