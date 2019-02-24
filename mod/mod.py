@@ -12,13 +12,12 @@ from redbot.core import checks, Config, modlog, commands
 from redbot.core.bot import Red
 from redbot.core.i18n import Translator, cog_i18n
 from redbot.core.utils.chat_formatting import box, escape, pagify, format_perms_list
-from redbot.core.utils.common_filters import filter_invites, filter_various_mentions
-from redbot.core.utils.mod import is_mod_or_superior, is_allowed_by_hierarchy, get_audit_reason
 from redbot.core.utils.common_filters import (
     filter_invites,
     filter_various_mentions,
     escape_spoilers,
 )
+from redbot.core.utils.mod import is_mod_or_superior, is_allowed_by_hierarchy, get_audit_reason
 from .log import log
 
 _ = T_ = Translator("Mod", __file__)
@@ -42,7 +41,7 @@ class Mod(commands.Cog):
 
     default_guild_settings = {
         "ban_mention_spam": False,
-        "delete_repeats": False,
+        "delete_repeats": -1,
         "ignored": False,
         "respect_hierarchy": True,
         "delete_delay": -1,
@@ -67,7 +66,7 @@ class Mod(commands.Cog):
         self.settings.register_user(**self.default_user_settings)
         self.ban_queue = []
         self.unban_queue = []
-        self.cache = defaultdict(lambda: deque(maxlen=3))
+        self.cache = {}
 
         self.registration_task = self.bot.loop.create_task(self._casetype_registration())
         self.tban_expiry_task = self.bot.loop.create_task(self.check_tempban_expirations())
@@ -193,13 +192,22 @@ class Mod(commands.Cog):
             guild = ctx.guild
             # Display current settings
             delete_repeats = await self.settings.guild(guild).delete_repeats()
+            # for backwards compatibility's sake
+            if isinstance(delete_repeats, bool):
+                if delete_repeats:
+                    delete_repeats = 3
+                else:
+                    delete_repeats = -1
+                await self.settings.guild(guild).delete_repeats.set(delete_repeats)
             ban_mention_spam = await self.settings.guild(guild).ban_mention_spam()
             respect_hierarchy = await self.settings.guild(guild).respect_hierarchy()
             delete_delay = await self.settings.guild(guild).delete_delay()
             reinvite_on_unban = await self.settings.guild(guild).reinvite_on_unban()
             msg = ""
-            msg += _("Delete repeats: {yes_or_no}\n").format(
-                yes_or_no=_("Yes") if delete_repeats else _("No")
+            msg += _("Delete repeats: {num_repeats}\n").format(
+                num_repeats=_("after {num} repeats").format(num=delete_repeats)
+                if delete_repeats != -1
+                else _("No")
             )
             msg += _("Ban mention spam: {num_mentions}\n").format(
                 num_mentions=_("{num} mentions").format(num=ban_mention_spam)
@@ -274,16 +282,44 @@ class Mod(commands.Cog):
 
     @modset.command()
     @commands.guild_only()
-    async def deleterepeats(self, ctx: commands.Context):
-        """Enable auto-deletion of repeated messages."""
+    async def deleterepeats(self, ctx: commands.Context, repeats: int = None):
+        """Enable auto-deletion of repeated messages.
+
+        Must be between 2 and 20.
+
+        Set to -1 to disable this feature.
+        """
         guild = ctx.guild
-        cur_setting = await self.settings.guild(guild).delete_repeats()
-        if not cur_setting:
-            await self.settings.guild(guild).delete_repeats.set(True)
-            await ctx.send(_("Messages repeated up to 3 times will be deleted."))
+        if repeats is not None:
+            self.cache.pop(guild.id, None)  # remove cache with old repeat limits
+            if repeats == -1:
+                await self.settings.guild(guild).delete_repeats.set(repeats)
+                await ctx.send(_("Repeated messages will be ignored."))
+            else:
+                repeats = min(max(repeats, 2), 20)  # Enforces the repeat limits
+                await self.settings.guild(guild).delete_repeats.set(repeats)
+                await ctx.send(
+                    _("Messages repeated up to {num} times will be deleted.").format(num=repeats)
+                )
         else:
-            await self.settings.guild(guild).delete_repeats.set(False)
-            await ctx.send(_("Repeated messages will be ignored."))
+            repeats = await self.settings.guild(guild).delete_repeats()
+            # for backwards compatibility's sake
+            if isinstance(repeats, bool):
+                if repeats:
+                    repeats = 3
+                else:
+                    repeats = -1
+                await self.settings.guild(guild).delete_repeats.set(repeats)
+            if repeats != -1:
+                await ctx.send(
+                    _(
+                        "Bot will delete repeated messages after"
+                        " {num} repeats. Set this value to -1 to"
+                        " ignore repeated messages"
+                    ).format(num=repeats)
+                )
+            else:
+                await ctx.send(_("Repeated messages will be ignored."))
 
     @modset.command()
     @commands.guild_only()
@@ -1583,12 +1619,24 @@ class Mod(commands.Cog):
         guild = message.guild
         author = message.author
 
-        if await self.settings.guild(guild).delete_repeats():
+        repeats = await self.settings.guild(guild).delete_repeats()
+        # for backwards compatibility's sake
+        if isinstance(repeats, bool):
+            if repeats:
+                repeats = 3
+            else:
+                repeats = -1
+            await self.settings.guild(guild).delete_repeats.set(repeats)
+
+        if repeats != -1:
             if not message.content:
                 return False
-            self.cache[author].append(message)
-            msgs = self.cache[author]
-            if len(msgs) == 3 and msgs[0].content == msgs[1].content == msgs[2].content:
+            if guild.id not in self.cache:
+                self.cache[guild.id] = defaultdict(lambda: deque(maxlen=repeats))
+
+            self.cache[guild.id][author].append(message.content)
+            msgs = self.cache[guild.id][author]
+            if len(msgs) == repeats and len(set(msgs)) == 1:
                 try:
                     await message.delete()
                     return True
