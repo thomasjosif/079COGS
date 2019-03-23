@@ -270,6 +270,26 @@ class Leveler(commands.Cog):
                 await self._find_guild_rep_rank(user, guild), board_type, user_stat
             )
             icon_url = guild.icon_url
+        elif "-lvl" in options or "-level" in options:
+            title = "Level Leaderboard for {}\n".format(guild.name)
+            for userinfo in db.users.find({}):
+                userid = userinfo["user_id"]
+                if "servers" in userinfo and str(guild.id) in userinfo["servers"]:
+                    level = userinfo["servers"][str(guild.id)]["level"]
+                    try:
+                        users.append((userinfo["username"], level))
+                    except:
+                        users.append((userinfo["user_id"], level))
+
+                if str(user.id) == userinfo["user_id"]:
+                    user_stat = userinfo["servers"][str(guild.id)]["level"]
+
+            board_type = "Level"
+            print(await self._find_guild_rep_rank(user, guild))
+            footer_text = "Your Rank: {}         {}: {}".format(
+                await self._find_guild_level_rank(user, guild), board_type, user_stat
+            )
+            icon_url = guild.icon_url
         else:
             title = "Exp Leaderboard for {}\n".format(guild.name)
             for userinfo in db.users.find({}):
@@ -3486,6 +3506,21 @@ class Leveler(commands.Cog):
             if a_user[0] == targetid:
                 return rank
             rank += 1
+
+    async def _find_guild_level_rank(self, user, guild):
+        targetid = str(user.id)
+        users = []
+        for userinfo in db.users.find({}):
+            userid = userinfo["user_id"]
+            if "servers" in userinfo and str(guild.id) in userinfo["servers"]:
+                users.append((userinfo["user_id"], userinfo["servers"][str(guild.id)]["level"]))
+            sorted_list = sorted(users, key=operator.itemgetter(1), reverse=True)
+
+            rank = 1
+            for a_user in sorted_list:
+                if a_user[0] == targetid:
+                    return rank
+                rank += 1
 
     async def _find_guild_exp(self, user, guild):
         guild_exp = 0

@@ -595,3 +595,5 @@ class LOACog(commands.Cog):
                                 issuer = entry.user
                                 user = entry.target
                                 await self.cancelLOA(loas[0], issuer)
+                    else:  # Bot does not have Audit Log Perms
+                        await self.cancelLOA(loas[0])
