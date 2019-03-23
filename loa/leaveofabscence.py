@@ -539,6 +539,14 @@ class LOACog(commands.Cog):
     @loa.command(aliases=["role"])
     async def setrole(self, ctx, role: Union[discord.Role, str]):
         """Set the Role to be given to those who are on active LOA"""
+        if not self.is_BotStaff_NW_Management_or_higher(ctx):
+            try:
+                await ctx.send(
+                    "You must be a part of Northwood Management or NW Bot Engineer to use this command."
+                )
+            except discord.Forbidden:
+                pass
+            return
         if type(role) == str:
             if role.lower() == "none":
                 await self.config.loaRoleID.set(None)
