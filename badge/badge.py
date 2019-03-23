@@ -110,3 +110,57 @@ class Badge(commands.Cog):
             await self.config.TOKEN.set(arg)
         else:
             return
+
+    # TODO: Put this in its own cog; along with other method (on_member_remove).
+    async def on_member_update(self, before, after):
+        if before.guild.id == 330432627649544202:
+            server = before.guild
+            # TODO: Make these cog-wide
+            patreon_roles = [
+                discord.utils.get(server.roles, name="Patreon level - Facility Manager"),
+                discord.utils.get(server.roles, name="Patreon level - Zone Manager"),
+                discord.utils.get(server.roles, name="Patreon level - Major Scientist"),
+                discord.utils.get(server.roles, name="Patreon level - Scientist"),
+                discord.utils.get(server.roles, name="Patreon level - Janitor"),
+            ]
+            patreon_role = next((i for i in before.roles if i in patreon_roles), None)
+            if patreon_role is not None:
+                has_role_after = False
+                for j in after.roles:
+                    if j == patreon_role:
+                        has_role_after = True
+                        break
+                if not has_role_after:
+                    await self.remove_badge(user_id=after.id);
+
+    async def on_member_remove(self, member: discord.Member):
+        if member.guild.id == 330432627649544202:
+            self.remove_badge(user_id=member.id)
+
+    async def remove_badge(self, user_id):
+        status = await self.query_user(user_id)
+        if status != "Badge not issued":
+            query_json = json.loads(status.text)
+            query_info2 = query_json["info2"]
+            query_steamid = query_json["steamid"]
+            author_id = str(user_id)
+            if author_id == query_info2:
+                revote_query = requests.post(
+                    "https://api.scpslgame.com/admin/badge.php",
+                    data={
+                        "token": await self.config.TOKEN(),
+                        "action": "issue",
+                        "id": query_steamid,
+                    },
+                )
+
+    async def query_user(self, user_id):
+        query = requests.post(
+            "https://api.scpslgame.com/admin/badge.php",
+            data={
+                "token": await self.config.TOKEN(),
+                "action": "queryDiscordId",
+                "id": user_id,
+            },
+        )
+        return query.text
