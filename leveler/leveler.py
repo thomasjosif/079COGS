@@ -361,7 +361,7 @@ class Leveler(commands.Cog):
 
         await ctx.send(embed=em)
 
-    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.cooldown(2, 10, commands.BucketType.user)
     @commands.command(pass_context=True, no_pm=True)
     async def rep(self, ctx, user: discord.Member = None):
         """Gives a reputation point to a designated player."""
