@@ -36,6 +36,7 @@ class Warnings(commands.Cog):
         "allow_custom_reasons": False,
         "compact_list": False,
         "vips": [],
+        "role_vips": [],
         "vip_warn_amount": 50,
         "vip_ignore_roles": [],
         "vip_ignore_users": [],
@@ -96,30 +97,69 @@ class Warnings(commands.Cog):
 
     @warningset.command()
     @commands.guild_only()
-    async def vip(self, ctx: commands.Context, *vips: discord.Member):
+    async def vip(self, ctx: commands.Context, *vips: Union[discord.Member, discord.Role]):
         """Add remove vip(s), that causes 079 to warn users that ping a vip."""
         guild = ctx.guild
         VipList = await self.config.guild(guild).vips()
+        RoleVipList = await self.config.guild(guild).role_vips()
 
         if not vips:
-            msg = f"```{guild.name}'s VIP List:\n\n"
+            msg = f"{guild.name}'s VIP List:\n\n"
             for user in VipList:
                 user = self.bot.get_user(user)
                 msg += f"{user}\n"
-            msg += "```"
+
+            msg += "\nVIP Roles:\n"
+            for roleID in RoleVipList:
+                role = ctx.guild.get_role(roleID)
+                msg += f"{role}\n"
+
+            try:
+                message = "```css\n" + msg + "```"
+                await ctx.send(message)
+            except discord.HTTPException:
+                pass
 
         else:
-            msg = f"```diff\nMade the following changes to {guild.name}'s VIP List:\n\n"
-            for user in vips:
-                if user.id in VipList:
-                    VipList.remove(user.id)
-                    msg += f"- Removed VIP User {user} ({user.id})\n"
+            vip_users = []
+            vip_roles = []
+            for entry in vips:
+                if type(entry) == discord.Member:
+                    vip_users.append(entry)
+                elif type(entry) == discord.Role:
+                    vip_roles.append(entry)
                 else:
-                    VipList.append(user.id)
-                    msg += f"+ Added VIP User {user} ({user.id})\n"
-            msg += "```"
-            await self.config.guild(guild).vips.set(VipList)
-        await ctx.send(msg)
+                    continue
+
+
+            msg = f"Made the following changes to {guild.name}'s VIP List:\n\n"
+            if vip_users:
+                for user in vip_users:
+                    if user.id in VipList:
+                        VipList.remove(user.id)
+                        msg += f"- Removed VIP User {user} ({user.id})\n"
+                    else:
+                        VipList.append(user.id)
+                        msg += f"+ Added VIP User {user} ({user.id})\n"
+                await self.config.guild(guild).vips.set(VipList)
+
+            if vip_roles:
+                msg += "\n+ VIP Roles:\n"
+                for role in vip_roles:
+                    if role.id in RoleVipList:
+                        RoleVipList.remove(role.id)
+                        msg += f"- Removed VIP Role {role} ({role.id})\n"
+                    else:
+                        RoleVipList.append(role.id)
+                        msg += f"+ Added VIP Role {role} ({role.id})"
+            await self.config.guild(guild).role_vips.set(RoleVipList)
+            try:
+                message = "```diff\n" + msg + "```"
+                await ctx.send(message)
+            except discord.HTTPException:
+                pass
+
+
 
     @warningset.command()
     @commands.guild_only()
@@ -936,6 +976,59 @@ class Warnings(commands.Cog):
                         except discord.Forbidden:
                             pass
 
+    async def VIP_PingWarn(self, message, user, vip):
+        if type(vip) == discord.Role:
+            vip_role = True
+        else:
+            vip_role = False
+        ctx = await self.bot.get_context(message)
+        member_settings = self.config.member(user)
+        current_point_count = await member_settings.total_points()
+        warn_amount = await self.config.guild(ctx.guild).vip_warn_amount()
+        description = (f"Pinging VIP Role {vip}" if vip_role else f"Pinging VIP {vip}")
+        warning_to_add = {
+            "points": warn_amount,
+            "description": description,
+            "mod": message.guild.me.id,
+            "time": datetime.datetime.utcnow().timestamp(),
+        }
+        await self.logWarning(message.guild, "warn", user, warning_to_add)
+        async with member_settings.warnings() as user_warnings:
+            user_warnings.append(warning_to_add)
+        current_point_count += warning_to_add["points"]
+        await member_settings.total_points.set(current_point_count)
+        await warning_points_add_check(
+            self.config, ctx, user, current_point_count
+        )
+        try:
+            em = discord.Embed(
+                title=_("Warning from {user}").format(
+                    user=message.guild.me
+                ),
+                description=warning_to_add["description"],
+            )
+            em.add_field(
+                name=_("Points"), value=str(warning_to_add["points"])
+            )
+            await user.send(
+                _("You have received a warning in {guild_name}.").format(
+                    guild_name=message.guild.name
+                ),
+                embed=em,
+            )
+        except (discord.HTTPException, discord.Forbidden):
+            pass
+        try:
+            await message.channel.send(
+                _(
+                    "User __**{user}**__ has been warned for {description}."
+                ).format(
+                    user=user, description=warning_to_add["description"]
+                )
+            )
+        except discord.Forbidden:
+            pass
+
     async def on_message_edit(self, before, after):
         await self.on_message(after)
 
@@ -943,6 +1036,12 @@ class Warnings(commands.Cog):
         def HasIgnoredRole(member):
             for role in member.roles:
                 if role.id in ignored_roles:
+                    return True
+            return False
+
+        def HasVipRole(member):
+            for role in member.roles:
+                if role.id in RoleVipList:
                     return True
             return False
 
@@ -955,65 +1054,71 @@ class Warnings(commands.Cog):
                     ("!", ";;", "t@", "t!", "!!", "-")
                 ):  # Ignore messages that start with common bot prefixes
                     VipList = await self.config.guild(message.guild).vips()
+                    RoleVipList = await self.config.guild(message.guild).role_vips()
                     ignored_users = await self.config.guild(message.guild).vip_ignore_users()
                     ignored_roles = await self.config.guild(message.guild).vip_ignore_roles()
                     if (
                         HasIgnoredRole(message.author) or message.author.id in ignored_users
                     ):  # Dismiss Ignored Users and users with Ignored Roles
                         return
+                    for role in message.role_mentions:
+                        if role.id in RoleVipList: #Message mentions a VIP Role
+                            await self.VIP_PingWarn(message, message.author, role)
+
                     for user in message.mentions:
                         if (
                             not message.author.id in VipList
                         ):  # Other VIPs excluded from warn for pinging VIPs
-                            if user.id in VipList:  # If message mentions a VIP, warn them
-                                vip = user
-                                ctx = await self.bot.get_context(message)
-                                user = message.author
-                                member_settings = self.config.member(user)
-                                current_point_count = await member_settings.total_points()
-                                warn_amount = await self.config.guild(ctx.guild).vip_warn_amount()
-                                warning_to_add = {
-                                    "points": warn_amount,
-                                    "description": f"Pinging VIP {vip}",
-                                    "mod": message.guild.me.id,
-                                    "time": datetime.datetime.utcnow().timestamp(),
-                                }
-                                await self.logWarning(message.guild, "warn", user, warning_to_add)
-                                async with member_settings.warnings() as user_warnings:
-                                    user_warnings.append(warning_to_add)
-                                current_point_count += warning_to_add["points"]
-                                await member_settings.total_points.set(current_point_count)
-                                await warning_points_add_check(
-                                    self.config, ctx, user, current_point_count
-                                )
-                                try:
-                                    em = discord.Embed(
-                                        title=_("Warning from {user}").format(
-                                            user=message.guild.me
-                                        ),
-                                        description=warning_to_add["description"],
-                                    )
-                                    em.add_field(
-                                        name=_("Points"), value=str(warning_to_add["points"])
-                                    )
-                                    await user.send(
-                                        _("You have received a warning in {guild_name}.").format(
-                                            guild_name=message.guild.name
-                                        ),
-                                        embed=em,
-                                    )
-                                except discord.HTTPException:
-                                    # await ctx.send("Failed to send user warning notification.")
-                                    pass
-                                except discord.Forbidden:
-                                    pass
-                                try:
-                                    await message.channel.send(
-                                        _(
-                                            "User __**{user}**__ has been warned for {description}."
-                                        ).format(
-                                            user=user, description=warning_to_add["description"]
-                                        )
-                                    )
-                                except discord.Forbidden:
-                                    pass
+                            if user.id in VipList or HasVipRole(user):  # If message mentions a VIP, warn them
+                                await self.VIP_PingWarn(message, message.author, user)
+                                #vip = user
+                                #ctx = await self.bot.get_context(message)
+                                #user = message.author
+                                #member_settings = self.config.member(user)
+                                #current_point_count = await member_settings.total_points()
+                                #warn_amount = await self.config.guild(ctx.guild).vip_warn_amount()
+                                #warning_to_add = {
+                                #    "points": warn_amount,
+                                #    "description": f"Pinging VIP {vip}",
+                                #    "mod": message.guild.me.id,
+                                #    "time": datetime.datetime.utcnow().timestamp(),
+                                #}
+                                #await self.logWarning(message.guild, "warn", user, warning_to_add)
+                                #async with member_settings.warnings() as user_warnings:
+                                #    user_warnings.append(warning_to_add)
+                                #current_point_count += warning_to_add["points"]
+                                #await member_settings.total_points.set(current_point_count)
+                                #await warning_points_add_check(
+                                #    self.config, ctx, user, current_point_count
+                                #)
+                                #try:
+                                #    em = discord.Embed(
+                                #        title=_("Warning from {user}").format(
+                                #            user=message.guild.me
+                                #        ),
+                                #        description=warning_to_add["description"],
+                                #    )
+                                #    em.add_field(
+                                #        name=_("Points"), value=str(warning_to_add["points"])
+                                #    )
+                                #    await user.send(
+                                #        _("You have received a warning in {guild_name}.").format(
+                                #            guild_name=message.guild.name
+                                #        ),
+                                #        embed=em,
+                                #    )
+                                #except discord.HTTPException:
+                                #    # await ctx.send("Failed to send user warning notification.")
+                                #    pass
+                                #except discord.Forbidden:
+                                #    pass
+                                #try:
+                                #    await message.channel.send(
+                                #        _(
+                                #            "User __**{user}**__ has been warned for {description}."
+                                #        ).format(
+                                #            user=user, description=warning_to_add["description"]
+                                #        )
+                                #    )
+                                #except discord.Forbidden:
+                                #    pass
