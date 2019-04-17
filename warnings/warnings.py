@@ -43,6 +43,7 @@ class Warnings(commands.Cog):
         "loggingChannel": None,
         "filtered_words": [],
         "filter_warn_amount": 50,
+        "show_filtered_word": True,
     }
     default_member = {"total_points": 0, "status": "", "warnings": []}
 
@@ -840,9 +841,24 @@ class Warnings(commands.Cog):
             if len(response) < 2000:
                 await ctx.send(response)
             else:
-                await ctx.send(reponse[:1996] + "```")
+                await ctx.send(response[:1996] + "```")
         except discord.Forbidden:
             pass
+
+    @warnfilter.command(name="showword")
+    async def toggle_showing_word(self, ctx, *, show: str):
+        """Toggles showing the banned word spoken in future filter warnings."""
+        show = show.lower()
+        if show == "true":
+            show_val = True
+        elif show == "false":
+            show_val = False
+
+        await self.config.guild(ctx.guild).show_filtered_word.set(show_val)
+        await ctx.send(("Filtered words are now being shown in future warnings."
+                        if show_val else
+                        "Filtered words are not being shown in future warnings.")
+                       )
 
     @warnfilter.command(name="remove", alias=["delete", "del"])
     async def removeFilter(self, ctx, *, words):
@@ -890,7 +906,7 @@ class Warnings(commands.Cog):
             if len(response) < 2000:
                 await ctx.send(response)
             else:
-                await ctx.send(reponse[:1996] + "```")
+                await ctx.send(response[:1996] + "```")
         except discord.Forbidden:
             pass
 
@@ -909,7 +925,7 @@ class Warnings(commands.Cog):
 
     @warnfilter.command(name="points")
     @checks.guildowner_or_permissions(administrator=True)
-    async def vipwarnpoints(self, ctx, amount: int = None):
+    async def filterwarnpoints(self, ctx, amount: int = None):
         """Configure the amount of warning points a user should be given for using a filtered word"""
         guild = ctx.guild
         warn_amount = await self.config.guild(guild).filter_warn_amount()
@@ -934,9 +950,10 @@ class Warnings(commands.Cog):
                         member_settings = self.config.member(user)
                         current_point_count = await member_settings.total_points()
                         warn_amount = await self.config.guild(message.guild).filter_warn_amount()
+                        show_word = await self.config.guild(message.guild).show_filtered_word()
                         warning_to_add = {
                             "points": warn_amount,
-                            "description": f"Using filtered word {word}",
+                            "description": f"Using filtered word{((': '+word) if show_word else '')}.",
                             "mod": message.guild.me.id,
                             "time": datetime.datetime.utcnow().timestamp(),
                         }

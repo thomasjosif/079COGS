@@ -6,10 +6,29 @@ from contextlib import suppress
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import pagify
 
+class SearchError(Exception):
+    pass
 
-Rift = namedtuple("Rift", ["author", "source", "destination"])
-Rift.__str__ = lambda self: f"{self.author}: {self.source} ► {self.destination}"
+class Rift:
+    def __init__(self, author, source, destination):
+        self.author = author
+        self.source = source
+        self.destination = destination
 
+    def __str__(self):
+        return f"{self.author}: {self.source} ► {self.destination}"
+
+    def toIDs(self):
+        return [self.author.id, self.source.id, self.destination.id]
+
+    def mention(self):
+        try:
+            return f"Author {self.author.mention}: {self.source.mention} ► {self.destination.mention}"
+        except AttributeError:
+            return f"Author {self.author}: {self.source} ► {self.destination}"
+
+#Rift = namedtuple("Rift", ["author", "source", "destination"])
+#Rift.__str__ = lambda self: f"{self.author}: {self.source} ► {self.destination}"
 
 def search_converter(translator):
     def convert(argument):
@@ -21,7 +40,6 @@ def search_converter(translator):
             )
 
     return convert
-
 
 class RiftConverter(commands.Converter):
     def __init__(self, translator, *, globally=False):
@@ -64,6 +82,11 @@ class RiftConverter(commands.Converter):
         return rift
 
     @classmethod
+    def create(cls, author, source, destination):
+        rift = Rift(author, source, destination)
+        return rift
+
+    @classmethod
     async def search(cls, ctx, argument, globally, _):
         is_owner = await ctx.bot.is_owner(ctx.author)
         config = ctx.cog.config
@@ -81,9 +104,9 @@ class RiftConverter(commands.Converter):
                     if not await config.user(member).blacklisted():
                         result.add(member)
         if not result:
-            raise commands.BadArgument(
+            raise SearchError(
                 _(
-                    "Destination {!r} not found. Either I don't have access or it has been blacklisted."
+                    "Destination __{}__ not found. Either I don't have access or it has been blacklisted."
                 ).format(argument)
             )
         return list(result)
