@@ -25,6 +25,7 @@ class Badge(commands.Cog):
         default_global = {"TOKEN": "123"}
         self.config.register_global(**default_global)
         print('Addon "{}" loaded'.format(self.__class__.__name__))
+        self.endpoint = "https://api.scpslgame.com/v2/admin/badge.php"
 
     @commands.command(pass_context=True)
     @commands.has_any_role(
@@ -33,33 +34,58 @@ class Badge(commands.Cog):
         "Patreon level - Zone Manager",
         "Patreon level - Facility Manager",
     )
-    async def issuebadge(self, ctx, arg):
+    async def issuesteambadge(self, ctx, steam_id: str):
+        """
+        Issue a patreon badge to a given steamID
+        """
         if ctx.message.channel.id == 472408004587945984:
-            rDiscordIdQuery = requests.post(
-                "https://api.scpslgame.com/admin/badge.php",
-                data={
-                    "token": await self.config.TOKEN(),
-                    "action": "queryDiscordId",
-                    "id": ctx.message.author.id,
-                },
-            )
-            if rDiscordIdQuery.text == "Badge not issued":
-                rIssue = requests.post(
-                    "https://api.scpslgame.com/admin/badge.php",
-                    data={
+            discord_query_response = self.query_discord_id(ctx.message.author.id)
+            if discord_query_response == "Badge not issued":
+                issue_request = requests.post(
+                    self.endpoint,
+                    data = {
                         "token": await self.config.TOKEN(),
                         "action": "issue",
-                        "id": arg,
+                        "id": (steam_id+"@steam"),
                         "badge": "9",
                         "info": ctx.message.author.name,
                         "info2": ctx.message.author.id,
                     },
                 )
-                await ctx.send(rIssue.text)
+                await ctx.send(issue_request.text)
             else:
-                await ctx.send("You already have a badge!")
-        else:
-            return
+                await ctx.send("You currently have an active badge.")
+
+    @commands.command(pass_context=True)
+    @commands.has_any_role(
+        "Patreon Supporters",
+        "Patreon level - Major Scientist",
+        "Patreon level - Zone Manager",
+        "Patreon level - Facility Manager",
+    )
+    async def issuediscordbadge(self, ctx):
+        """
+        Issue a patreon badge to the user's discord account.
+        """
+        if ctx.message.channel.id == 472408004587945984:
+            discord_query_response = self.query_discord_id(ctx.message.author.id)
+            if discord_query_response == "Badge not issued":
+                str_id = str(ctx.message.author.id)
+                issue_request = requests.post(
+                    self.endpoint,
+                    data={
+                        "token": await self.config.TOKEN(),
+                        "action": "issue",
+                        "id": (str_id + "@discord"),
+                        "badge": "9",
+                        "info": ctx.message.author.name,
+                        "info2": str_id,
+                    },
+                )
+
+                await ctx.send(issue_request.text)
+            else:
+                await ctx.send("You currently have an active badge")
 
     @commands.command(pass_context=True)
     @commands.has_any_role(
@@ -69,47 +95,16 @@ class Badge(commands.Cog):
         "Patreon level - Facility Manager",
     )
     async def revokebadge(self, ctx):
-        if ctx.message.channel.id == 472408004587945984:
-            rDiscordIdQuery = requests.post(
-                "https://api.scpslgame.com/admin/badge.php",
-                data={
-                    "token": await self.config.TOKEN(),
-                    "action": "queryDiscordId",
-                    "id": ctx.message.author.id,
-                },
-            )
-            if rDiscordIdQuery.text == "Badge not issued":
-                await ctx.send("It seems that you don't have a badge!")
-            else:
-                rDiscordIdQueryJSON = json.loads(rDiscordIdQuery.text)
-                rDiscordIdQueryInfo2 = rDiscordIdQueryJSON["info2"]
-                rDiscordIdQuerySteamID = rDiscordIdQueryJSON["steamid"]
-                messageAuthorId = ctx.message.author.id
-                messageAuthorIdToString = str(messageAuthorId)
-
-                if messageAuthorIdToString == rDiscordIdQueryInfo2:
-                    rIssueRevoke = requests.post(
-                        "https://api.scpslgame.com/admin/badge.php",
-                        data={
-                            "token": await self.config.TOKEN(),
-                            "action": "issue",
-                            "id": rDiscordIdQuerySteamID,
-                        },
-                    )
-                    await ctx.send("Status: " + rIssueRevoke.text)
-                else:
-                    await ctx.send(
-                        "There was a problem, contact a Patreon Representative or Global Moderator"
-                    )
-        else:
-            return
+        """
+        Revokes a patreon badge from yourself.
+        """
+        if ctx.messsage.channel.id == 472408004587945984:
+                await ctx.send(await self.remove_badge(str(ctx.message.author.id)))
 
     @commands.command(pass_context=True)
     async def settoken(self, ctx, arg):
         if ctx.message.author.id == 219040433861296128:
             await self.config.TOKEN.set(arg)
-        else:
-            return
 
     # TODO: Put this in its own cog; along with other method (on_member_remove).
     async def on_member_update(self, before, after):
@@ -131,36 +126,46 @@ class Badge(commands.Cog):
                         has_role_after = True
                         break
                 if not has_role_after:
-                    await self.remove_badge(user_id=after.id);
+                    await self.remove_badge(discord_id=after.id)
 
     async def on_member_remove(self, member: discord.Member):
         if member.guild.id == 330432627649544202:
-            self.remove_badge(user_id=member.id)
+            await self.remove_badge(discord_id=member.id)
 
-    async def remove_badge(self, user_id):
-        status = await self.query_user(user_id)
+    async def remove_badge(self, discord_id: str):
+        """
+        Attempts to remove a user's badge
+        """
+        status = await self.query_discord_id(discord_id)
         if status != "Badge not issued":
-            query_json = json.loads(status.text)
+            query_json = json.loads(status)
             query_info2 = query_json["info2"]
-            query_steamid = query_json["steamid"]
-            author_id = str(user_id)
+            query_userid = query_json["userid"]
+            author_id = str(discord_id)
             if author_id == query_info2:
-                revote_query = requests.post(
-                    "https://api.scpslgame.com/admin/badge.php",
+                revoke_query = requests.post(
+                    self.endpoint,
                     data={
                         "token": await self.config.TOKEN(),
                         "action": "issue",
-                        "id": query_steamid,
-                    },
+                        "badge": "9",
+                        "id": query_userid,
+                        "info2": query_info2
+                    }
                 )
+                return revoke_query.text
+            else:
+                return "An error has occurred. Please tell a Patreon Representative or a Global Moderator."
+        else:
+            return "It seems that you don't have a badge!"
 
-    async def query_user(self, user_id):
+    async def query_discord_id(self, discord_id):
         query = requests.post(
-            "https://api.scpslgame.com/admin/badge.php",
+            self.endpoint,
             data={
                 "token": await self.config.TOKEN(),
                 "action": "queryDiscordId",
-                "id": user_id,
+                "id": discord_id,
             },
         )
         return query.text
