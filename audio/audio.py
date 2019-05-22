@@ -1045,8 +1045,7 @@ class Audio(commands.Cog):
                     return await self._embed_msg(
                         ctx, _("I don't have permission to connect to your channel.")
                     )
-                await lavalink.connect(ctx.author.voice.channel)
-                player = lavalink.get_player(ctx.guild.id)
+                player = await lavalink.connect(ctx.author.voice.channel)
                 player.store("connect", datetime.datetime.utcnow())
             except AttributeError:
                 return await self._embed_msg(ctx, _("Connect to a voice channel first."))

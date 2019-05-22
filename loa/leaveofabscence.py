@@ -268,7 +268,7 @@ class LOACog(commands.Cog):
         found2 = [loa for loa in sLoas if loa["authorID"] == user.id]
         if found2:
             for loa in found2:
-                await self.cancelLOA(loa, ctx.author)
+                await self.cancelLOA(guild, loa, ctx.author)
         role = ctx.guild.get_role(await self.config.guild(guild).loaRoleID())
         if role is not None:
             try:

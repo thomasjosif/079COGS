@@ -49,6 +49,7 @@ class Rift(Cog):
         super().__init__()
         self.bot = bot
         self.open_rifts = {}
+        self.requesting_users = []
         self.bot.loop.create_task(self.load_rifts())
 
         self.config = Config.get_conf(self, identifier=2_113_674_295, force_registration=True)
@@ -177,7 +178,7 @@ class Rift(Cog):
         create_queue = []
         for rift in rifts:
             if not await self.rift_exists(rift):
-                if rift.destination not in ctx.guild.channels:
+                if ctx.guild is None or rift.destination not in ctx.guild.channels:
                     accepted, reason = await self.request_access(ctx, rift)
                     if not accepted:
                         continue
@@ -192,7 +193,8 @@ class Rift(Cog):
                 create_queue.append(rift)
 
         with suppress(NameError):
-            await ctx.maybe_send_embed(reason)
+            if reason is not None:
+                await ctx.maybe_send_embed(reason)
             if not accepted:
                 return
         if not create_queue:
@@ -204,7 +206,7 @@ class Rift(Cog):
 
         open_embed = await self.create_simple_embed(ctx.author,
                 _("A rift has been opened to {}! Everything you say will be relayed there.\n"
-                  "Responses will be relayed here.\nType `exit` to quit."
+                  "Responses will be relayed here.\nType `exit` here to quit."
                   ).format(humanize_list([str(rift.destination) for rift in create_queue]))
                 , "Rift Opened!")
         await ctx.send(embed=open_embed)
@@ -308,8 +310,19 @@ class Rift(Cog):
 
     async def request_access(self, ctx, rift) -> (bool, str):
             author = ctx.author
+            if author.id in self.requesting_users:
+                failed_embed = await self.create_simple_embed(author,
+                                                              "You currently have a Rift request open. Please wait "
+                                                              "until that expires before trying again.",
+                                                              "Existing rift request.")
+                try:
+                    await ctx.send(embed=failed_embed)
+                except discord.Forbidden:
+                    pass
+                return False, None
             destination = rift.destination
             source = rift.source
+            self.requesting_users.append(author.id)
             embed = await self.create_simple_embed(
                 author,
                 (f"{author} is requesting to open a rift to here from #{source} in {ctx.guild.name}" + "\n" +
@@ -322,7 +335,12 @@ class Rift(Cog):
                 return False, f"I do not have permissions to send in {destination}"
 
             def check(m):
-                return m.channel == rift.destination and m.author.guild_permissions.manage_channels and m.content.lower().strip() in ["accept", "yes", "y", "decline", "no", "n"]
+                is_accept_message = m.content.lower().strip() in ["accept", "yes", "y", "decline", "no", "n"]
+                is_correct_channel = m.channel.id == rift.destination.id
+                if isinstance(m.channel, discord.channel.DMChannel):
+                    is_correct_channel = m.channel.recipient.id == rift.destination.id or m.channel.id == rift.destination.id
+                    return is_correct_channel and is_accept_message
+                return is_correct_channel and is_accept_message and m.author.guild_permissions.manage_channels
 
             try:
                 msg = await ctx.bot.wait_for("message", check=check, timeout=25)
@@ -331,6 +349,8 @@ class Rift(Cog):
                     await request_msg.delete()
                 except discord.NotFound:
                     pass
+                if author.id in self.requesting_users:
+                    self.requesting_users.remove(author.id)
                 return False, "No staff response to request."
             response = msg.content.lower().strip()
             if response in ["accept", "yes", "y"]:
@@ -344,6 +364,8 @@ class Rift(Cog):
                 await request_msg.delete()
             except discord.NotFound:
                 pass
+            if author.id in self.requesting_users:
+                self.requesting_users.remove(author.id)
             return accepted, reason
 
     async def close_rifts(self, ctx, closer, destination, search_source : bool = False):
@@ -490,24 +512,25 @@ class Rift(Cog):
     async def on_message(self, m):
         if m.author.bot:
             return
-        channel = m.author if isinstance(m.channel, discord.DMChannel) else m.channel
+        channel = m.author if isinstance(m.channel, discord.channel.DMChannel) else m.channel
         sent = {}
         ctx = (await self.bot.get_context(m))
         is_command = ctx.valid or m.content.startswith(str(ctx.prefix))
         if is_command: return
         for rift, record in self.open_rifts.copy().items():
+            privilege_check = (rift.author == m.author if not isinstance(m.channel, discord.channel.DMChannel) else m.author == channel)
+            if privilege_check and m.content.lower() == "exit":
+                await self.close_rifts(ctx, m.author, channel, search_source=(True if channel == rift.source else False))
+                return
+
             if rift.source == channel:
-                if rift.author == m.author and m.content.lower() == "exit":
-                    await self.close_rifts(ctx, m.author, channel, search_source=True)
-                else:
-                    if not is_command:
-                        try:
-                            record[m] = await self.process_message(rift, m, rift.destination)
-                        except discord.HTTPException as e:
-                            embed = await self.create_simple_embed(self.bot.user,
-                                    _("I couldn't send your message due to an error: {}").format(e),
-                                    "Bot Exception")
-                            await channel.send(embed=embed)
+                try:
+                    record[m] = await self.process_message(rift, m, rift.destination)
+                except discord.HTTPException as e:
+                    embed = await self.create_simple_embed(self.bot.user,
+                            _("I couldn't send your message due to an error: {}").format(e),
+                            "Bot Exception")
+                    await channel.send(embed=embed)
             elif rift.destination == channel:
                 rift_chans = (rift.source, rift.destination)
                 if rift_chans in sent:

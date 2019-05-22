@@ -10,8 +10,8 @@ import redbot.core
 log = logging.getLogger("red.audio")
 
 LAVALINK_DOWNLOAD_URL = (
-    "https://github.com/Cog-Creators/Red-DiscordBot/releases/download/{}/Lavalink.jar"
-).format(redbot.core.__version__)
+    "https://github.com/Cog-Creators/Red-DiscordBot/releases/download/3.0.2/Lavalink.jar"
+)
 
 LAVALINK_DOWNLOAD_DIR = cog_data_path(raw_name="Audio")
 LAVALINK_JAR_FILE = LAVALINK_DOWNLOAD_DIR / "Lavalink.jar"

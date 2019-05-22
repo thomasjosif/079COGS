@@ -29,8 +29,9 @@ def has_java_error(pid):
 
 async def monitor_lavalink_server(loop):
     global shutdown
+    global proc
     while shutdown is False:
-        if proc.poll() is not None:
+        if proc is None or proc.poll() is not None:
             break
         await asyncio.sleep(0.5)
 

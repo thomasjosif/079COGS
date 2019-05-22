@@ -39,11 +39,11 @@ class Badge(commands.Cog):
         Issue a patreon badge to a given steamID
         """
         if ctx.message.channel.id == 472408004587945984:
-            discord_query_response = self.query_discord_id(ctx.message.author.id)
+            discord_query_response = await self.query_discord_id(ctx.message.author.id)
             if discord_query_response == "Badge not issued":
                 issue_request = requests.post(
                     self.endpoint,
-                    data = {
+                    data={
                         "token": await self.config.TOKEN(),
                         "action": "issue",
                         "id": (steam_id+"@steam"),
@@ -68,7 +68,7 @@ class Badge(commands.Cog):
         Issue a patreon badge to the user's discord account.
         """
         if ctx.message.channel.id == 472408004587945984:
-            discord_query_response = self.query_discord_id(ctx.message.author.id)
+            discord_query_response = await self.query_discord_id(ctx.message.author.id)
             if discord_query_response == "Badge not issued":
                 str_id = str(ctx.message.author.id)
                 issue_request = requests.post(
@@ -98,8 +98,9 @@ class Badge(commands.Cog):
         """
         Revokes a patreon badge from yourself.
         """
-        if ctx.messsage.channel.id == 472408004587945984:
-                await ctx.send(await self.remove_badge(str(ctx.message.author.id)))
+        if ctx.message.channel.id == 472408004587945984:
+                await ctx.send(await self.remove_badge(discord_id=str(ctx.message.author.id),
+                                                       discord_name=ctx.message.author.name))
 
     @commands.command(pass_context=True)
     async def settoken(self, ctx, arg):
@@ -126,13 +127,13 @@ class Badge(commands.Cog):
                         has_role_after = True
                         break
                 if not has_role_after:
-                    await self.remove_badge(discord_id=after.id)
+                    await self.remove_badge(discord_id=after.id, discord_name=after.name)
 
     async def on_member_remove(self, member: discord.Member):
         if member.guild.id == 330432627649544202:
-            await self.remove_badge(discord_id=member.id)
+            await self.remove_badge(discord_id=member.id, discord_name=member.name)
 
-    async def remove_badge(self, discord_id: str):
+    async def remove_badge(self, discord_id: str, discord_name: str):
         """
         Attempts to remove a user's badge
         """
@@ -148,9 +149,10 @@ class Badge(commands.Cog):
                     data={
                         "token": await self.config.TOKEN(),
                         "action": "issue",
-                        "badge": "9",
+                        "badge": "",
                         "id": query_userid,
-                        "info2": query_info2
+                        "info": discord_name,
+                        "info2": author_id
                     }
                 )
                 return revoke_query.text

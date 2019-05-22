@@ -1,8 +1,10 @@
 from copy import copy
 import asyncio
 import inspect
+import collections
 import discord
 import datetime
+import re
 
 from redbot.core import Config, checks, commands
 from redbot.core.i18n import Translator
@@ -186,10 +188,18 @@ async def EmbedPaginateWarnsList(
         count = (page - 1) * items_per_page
         total = len(items)
         for warning in pages[page - 1]:
+            id = warning.get("id", "None")
             count += 1
             num_points = warning["points"]
             time = datetime.datetime.fromtimestamp(warning["time"]).strftime(
                 "%m/%d/%y @ %I:%M %p UTC"
+            )
+            unwarn = (
+                datetime.datetime.fromtimestamp(warning["unwarn"]).strftime(
+                    "%m/%d/%y @ %I:%M %p UTC"
+                )
+                if warning.get("unwarn")
+                else None
             )
             mod = ctx.guild.get_member(warning["mod"])
             if mod is None:
@@ -197,13 +207,15 @@ async def EmbedPaginateWarnsList(
                 if mod is None:
                     mod = await self.bot.get_user_info(warning["mod"])
             em.add_field(
-                name=f"{count} of {total} | {num_points} point warning",
+                name=f"{count} of {total} | {num_points} point warning | Warning ID (*{id}*)",
                 value=f"Issued by {mod.mention}",
                 inline=False,
             )
             em.add_field(
                 name=f"Issued on {time}",
-                value=f'Reason : {warning["description"]}\n------------------------------------------------------------------------------',
+                value=f'Reason : {warning["description"]}'
+                + (f"\nUnwarning: {unwarn}" if unwarn else "")
+                + "\n------------------------------------------------------------------------------",
                 inline=False,
             )
         em.set_footer(
@@ -246,33 +258,75 @@ async def EmbedPaginateWarnsList(
                 text=f"Page {currentPage} out of {maxPage}. Timeout. Please reinvoke the command to change pages.",
                 icon_url="https://www.clipartmax.com/png/middle/171-1715896_paper-book-icon-textbook-icon.png",
             )
-            await msg.edit(embed=em)
             try:
+                await msg.edit(embed=em)
                 await msg.clear_reactions()
-            except discord.Forbidden:
+            except (discord.NotFound, discord.Forbidden):
                 pass
             break
         else:
-            if "⏪" in str(result.emoji):
-                # print('Previous Page')
-                currentPage -= 1
-                em = await showPage(currentPage)
-                await msg.edit(embed=em)
-                await msg.clear_reactions()
-            elif "⏩" in str(result.emoji):
-                # print('Next Page')
-                currentPage += 1
-                em = await showPage(currentPage)
-                try:
+            try:
+                if "⏪" in str(result.emoji):
+                    # print('Previous Page')
+                    currentPage -= 1
+                    em = await showPage(currentPage)
                     await msg.edit(embed=em)
                     await msg.clear_reactions()
-                except discord.Forbidden:
-                    pass
-            elif "✅" in str(result.emoji):
-                # print('Close List')
-                await msg.delete()
-                try:
+                elif "⏩" in str(result.emoji):
+                    # print('Next Page')
+                    currentPage += 1
+                    em = await showPage(currentPage)
+                    await msg.edit(embed=em)
+                    await msg.clear_reactions()
+                elif "✅" in str(result.emoji):
+                    # print('Close List')
+                    await msg.delete()
                     await ctx.message.delete()
-                except discord.Forbidden:
-                    pass
-                break
+                    break
+            except (discord.NotFound, discord.Forbidden):
+                pass
+
+
+class Time(commands.Converter):
+    TIME_AMNT_REGEX = re.compile("([1-9][0-9]*)([a-z]+)", re.IGNORECASE)
+    TIME_QUANTITIES = collections.OrderedDict(
+        [
+            ("seconds", 1),
+            ("minutes", 60),
+            ("hours", 3600),
+            ("days", 86400),
+            ("weeks", 604800),
+            ("months", 2.628e6),
+            ("years", 3.154e7),
+        ]
+    )  # (amount in seconds, max amount)
+
+    def get_seconds(self, time):
+        """Returns the amount of converted time or None if invalid"""
+        seconds = 0
+        for time_match in self.TIME_AMNT_REGEX.finditer(time):
+            time_amnt = int(time_match.group(1))
+            time_abbrev = time_match.group(2)
+            time_quantity = discord.utils.find(
+                lambda t: t[0].startswith(time_abbrev), self.TIME_QUANTITIES.items()
+            )
+            if time_quantity is not None:
+                seconds += time_amnt * time_quantity[1]
+        return None if seconds == 0 else seconds
+
+    async def convert(self, ctx, arg):
+        result = None
+        seconds = self.get_seconds(arg)
+        result = seconds
+        if result is None:
+            raise commands.BadArgument('Unable to parse Time "{}" '.format(arg))
+        return result
+
+    @classmethod
+    async def fromString(cls, arg):
+        result = None
+        seconds = cls.get_seconds(cls, arg)
+        result = seconds
+        if result is None:
+            raise commands.BadArgument('Unable to parse Time "{}" '.format(arg))
+        return result
