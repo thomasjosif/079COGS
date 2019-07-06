@@ -24,17 +24,17 @@ NUM_ENC = "\N{COMBINING ENCLOSING KEYCAP}"
 
 class SMReel(Enum):
     seven = "<:think7:423526659744858122>"
-    derg = "<:reshowo:511905838579843072>"
+    peanut = "<:peanutthinking:423524672110329857> " #
     haha = "<:hahayes:423527488795443213>"
     dab = "<:hubertdab:498133199965388800>"
     fn = "<:049:423520449482326036>"
     lol = "<:lol:330506869649047552>"
-    sn = "<:079kawaii:423520068165697547>"
+    sn = "<:035lul:577850023119945738> " #
     ss = "<:scientistsweat:498330844402941953>"
     nnn = "<:999:423524521384083456>"
     fps = "<:457:423520068136337428>"
     oof = "<:Oof:492894982785597461>"
-    lgb = "<:lurkguardblob:500005020780068864>"
+    lgb = "<:pepeinspecting:575808313112002605>" #
 
 
 _ = lambda s: s
@@ -47,17 +47,17 @@ PAYOUTS = {
         "payout": lambda x: x + 800,
         "phrase": _("+800, because I'm happy!"),
     },
-    (SMReel.derg, SMReel.derg, SMReel.derg): {
+    (SMReel.peanut, SMReel.peanut, SMReel.peanut): {
         "payout": lambda x: x + 1000,
-        "phrase": _("Triple derg! +1000!"),
+        "phrase": _("Triple peanut! +1000!"),
     },
     (SMReel.seven, SMReel.seven): {
         "payout": lambda x: x * 4 + x,
         "phrase": _("77! Your bid has been multiplied * 4!"),
     },
-    (SMReel.derg, SMReel.derg): {
+    (SMReel.peanut, SMReel.peanut): {
         "payout": lambda x: x * 3 + x,
-        "phrase": _("Double derg! Your bid has been multiplied * 3!"),
+        "phrase": _("Double peanut! Your bid has been multiplied * 3!"),
     },
     "3 symbols": {"payout": lambda x: x + 500, "phrase": _("Three symbols! +500!")},
     "2 symbols": {
@@ -69,10 +69,10 @@ PAYOUTS = {
 SLOT_PAYOUTS_MSG = _(
     "Slot machine payouts:\n"
     "{seven.value} {seven.value} {seven.value} Bet * 2500\n"
-    "{derg.value} {derg.value} {derg.value} +1000\n"
+    "{peanut.value} {peanut.value} {peanut.value} +1000\n"
     "{haha.value} {haha.value} {haha.value} +800\n"
     "{seven.value} {seven.value} Bet * 4\n"
-    "{derg.value} {derg.value} Bet * 3\n\n"
+    "{peanut.value} {peanut.value} Bet * 3\n\n"
     "Three symbols: +500\n"
     "Two symbols: Bet * 2"
 ).format(**SMReel.__dict__)
