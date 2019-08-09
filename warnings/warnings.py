@@ -1,28 +1,24 @@
-from collections import namedtuple
-
-import discord
+import asyncio
+import collections
 import datetime
 import enum
-import asyncio
+import inspect
+import re
+from collections import namedtuple
+from copy import copy
+from typing import Union
+
 import fuzzywuzzy
 
-from .helpers import (
-    warning_points_add_check,
-    get_command_for_exceeded_points,
-    get_command_for_dropping_points,
-    warning_points_remove_check,
-    EmbedPaginateWarnsList,
-    Time,
-)
+import discord
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
-from redbot.core.i18n import Translator, cog_i18n
-from redbot.core.utils.mod import is_admin_or_superior, is_allowed_by_hierarchy
-from redbot.core.utils.chat_formatting import warning, pagify
+from redbot.core.i18n import Translator
+from redbot.core.i18n import cog_i18n
+from redbot.core.utils.chat_formatting import pagify
 from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
+from redbot.core.utils.mod import is_allowed_by_hierarchy
 from redbot.core.utils.predicates import MessagePredicate
-
-from typing import Union
 
 _ = Translator("Warnings", __file__)
 
@@ -37,6 +33,51 @@ class WarningType(enum.Enum):
 
 class WarningNotFound(Exception):
     pass
+
+
+class Time(commands.Converter):
+    TIME_AMNT_REGEX = re.compile("([1-9][0-9]*)([a-z]+)", re.IGNORECASE)
+    TIME_QUANTITIES = collections.OrderedDict(
+        [
+            ("seconds", 1),
+            ("minutes", 60),
+            ("hours", 3600),
+            ("days", 86400),
+            ("weeks", 604800),
+            ("months", 2.628e6),
+            ("years", 3.154e7),
+        ]
+    )  # (amount in seconds, max amount)
+
+    def get_seconds(self, time):
+        """Returns the amount of converted time or None if invalid"""
+        seconds = 0
+        for time_match in self.TIME_AMNT_REGEX.finditer(time):
+            time_amnt = int(time_match.group(1))
+            time_abbrev = time_match.group(2)
+            time_quantity = discord.utils.find(
+                lambda t: t[0].startswith(time_abbrev), self.TIME_QUANTITIES.items()
+            )
+            if time_quantity is not None:
+                seconds += time_amnt * time_quantity[1]
+        return None if seconds == 0 else seconds
+
+    async def convert(self, ctx, arg):
+        result = None
+        seconds = self.get_seconds(arg)
+        result = seconds
+        if result is None:
+            raise commands.BadArgument('Unable to parse Time "{}" '.format(arg))
+        return result
+
+    @classmethod
+    async def fromString(cls, arg):
+        result = None
+        seconds = cls.get_seconds(cls, arg)
+        result = seconds
+        if result is None:
+            raise commands.BadArgument('Unable to parse Time "{}" '.format(arg))
+        return result
 
 
 @cog_i18n(_)
@@ -65,7 +106,8 @@ class Warnings(commands.Cog):
         # "autowarn_removal_timer": 604800,  # 604800 seconds = 1 week
         "autowarn_threshold": 3,
         "autounwarn_affect_manual": False,
-        "show_filtered_word": True,
+        "show_filtered_word": False,
+        "log_filtered_word": True,
         "multiwarn_prevention_delay": 20,
     }
     default_member = {"total_points": 0, "status": "", "warnings": [], "queued_unwarn": {}}
@@ -275,7 +317,7 @@ class Warnings(commands.Cog):
     @warningset.group(name="autounwarn")
     async def autounwarn(self, ctx):
         """Configure settings related to auto unwarning
-        
+
         Unwarns are setup so that if an unwarn is queued, and another is queued before a previous one finished unwarning,
         all a member's unwarns will be finished ONLY after the last queued unwarn.
         """
@@ -322,12 +364,11 @@ class Warnings(commands.Cog):
             num_warns > 5
         ):  # Don't see a need to configure higher than 5 warns, mainly just to prevent people doing stuff on accident.
             return await ctx.maybe_send_embed(
-                f"Unbale to support setting delay for reaching {num_warns} number of active warnings"
+                f"Unable to support setting delay for reaching {num_warns} number of active warnings"
             )
         num_warns = str(num_warns)
         timers = await self.config.guild(ctx.guild).autowarn_removal_timers()
-        # if timers == {-1: None}:
-        #    timers = {}
+
         if type(time) == str:
             if time.lower().strip() in ["disable", "off", "deactivate", "no", "none"]:
                 async with self.config.guild(ctx.guild).autowarn_removal_timers() as timers:
@@ -341,6 +382,7 @@ class Warnings(commands.Cog):
                         return await ctx.maybe_send_embed(
                             f"No previous set delay found for {num_warns} number of active warnings."
                         )
+            return await ctx.maybe_send_embed("Unable to parse time as valid input.")
 
         async with self.config.guild(ctx.guild).autowarn_removal_timers() as timers:
             timers[num_warns] = time
@@ -604,6 +646,20 @@ class Warnings(commands.Cog):
         }
         return warning
 
+    @staticmethod
+    async def fill_warning_keys(guild, user, warning):
+        new_warning = {
+            "id": hash(warning["mod"] * warning["time"]),
+            "points": warning["points"],
+            "description": warning["description"],
+            "mod": warning["mod"],
+            "time": warning["time"],
+            "unwarn": None,
+            "guild": guild.id,
+            "user": user.id,
+        }
+        return new_warning
+
     @commands.group(pass_context=True, invoke_without_command=True)
     @commands.guild_only()
     @checks.admin_or_permissions(ban_members=True)
@@ -640,7 +696,7 @@ class Warnings(commands.Cog):
                         namedtuple("Member", "id guild display_name")(
                             searcheduser.id, ctx.guild, searcheduser.display_name
                         )
-                        if searcheduser != None
+                        if searcheduser is not None
                         else namedtuple("Member", "id guild")(user, ctx.guild)
                     )
                     IsMemberTuple = True
@@ -843,7 +899,7 @@ class Warnings(commands.Cog):
                     else None
                 )
                 await ctx.maybe_send_embed(
-                    f"Enter time from now to replace the scheduled unwarn time `{option}: {time}`.`"
+                    f"Enter time from now to replace the scheduled unwarn time `{option}: {time}`."
                 )
             else:
                 await ctx.maybe_send_embed(
@@ -1120,18 +1176,22 @@ class Warnings(commands.Cog):
             return
         member_settings = self.config.member(user)
         total_points = await member_settings.total_points()
+        warning_id = warning.get("id")
+        if not warning_id:
+            warning = await self.fill_warning_keys(guild, user, warning)
         if issuer is None:
             mod = discord.utils.get(self.bot.get_all_members(), id=warning["mod"])
         else:
             mod = issuer
         time = datetime.datetime.fromtimestamp(warning["time"])
         description = warning["description"]
+        points = warning.get("points", "N/A")
         if mod is None:
             mod = self.bot.get_user_info(warning["mod"])
         if action == WarningType.MASS_UNWARN:  # Log Mass Unwarning
             color = 0x820000
             em = discord.Embed(
-                title=f"Mass Unwarn | - {warning['points']} Points | Total Points : {total_points}",
+                title=f"Mass Unwarn | - {points} Points | Total Points : {total_points}",
                 color=color,
             )
             em.set_author(name=f"{user} ( {user.id} )", icon_url=user.avatar_url)
@@ -1141,7 +1201,7 @@ class Warnings(commands.Cog):
         elif action == WarningType.AUTO_UNWARN:
             color = 0x820000
             em = discord.Embed(
-                title=f"Auto-Unwarned User | - {warning['points']} Points | Total Points : {total_points}\nWarning ID ({warning['id']})",
+                title=f"Auto-Unwarned User | - {points} Points | Total Points : {total_points}\nWarning ID ({warning_id})",
                 color=color,
             )
             em.set_author(name=f"{user} ( {user.id} )", icon_url=user.avatar_url)
@@ -1153,7 +1213,7 @@ class Warnings(commands.Cog):
                 old_warning, option = old_warning
                 color = discord.Colour.dark_gold()
                 em = discord.Embed(
-                    title=f"Editied Warn | -> {warning['points']} Points | Total Points : {total_points}\nWarning ID ({warning['id']})",
+                    title=f"Editied Warn | -> {points} Points | Total Points : {total_points}\nWarning ID ({warning_id})",
                     color=color,
                 )
                 em.set_author(name=f"{user} ( {user.id} )", icon_url=user.avatar_url)
@@ -1189,13 +1249,13 @@ class Warnings(commands.Cog):
             if action == WarningType.WARN:  # Logging Single Warn/Unwarn
                 color = 0x3DF270
                 em = discord.Embed(
-                    title=f"Warned User | + {warning['points']} Points | Total Points : {total_points}\nWarning ID ({warning['id']})",
+                    title=f"Warned User | + {points} Points | Total Points : {total_points}\nWarning ID ({warning_id})",
                     color=color,
                 )
             elif action == WarningType.UNWARN:
                 color = discord.Color.red()
                 em = discord.Embed(
-                    title=f"Unwarned User | - {warning['points']} Points| Total Points : {total_points}\nWarning ID ({warning['id']})",
+                    title=f"Unwarned User | - {points} Points| Total Points : {total_points}\nWarning ID ({warning_id})",
                     color=color,
                 )
             em.set_author(name=f"{user} ( {user.id} )", icon_url=user.avatar_url)
@@ -1309,20 +1369,26 @@ class Warnings(commands.Cog):
             pass
 
     @warnfilter.command(name="showword")
-    async def toggle_showing_word(self, ctx, *, show: str):
+    async def toggle_showing_word(self, ctx, *, show: bool):
         """Toggles showing the banned word spoken in future filter warnings."""
-        show = show.lower()
-        if show == "true":
-            show_val = True
-        elif show == "false":
-            show_val = False
-
-        await self.config.guild(ctx.guild).show_filtered_word.set(show_val)
+        await self.config.guild(ctx.guild).show_filtered_word.set(show)
         await ctx.send(
             (
                 "Filtered words are now being shown in future warnings."
-                if show_val
+                if show
                 else "Filtered words are not being shown in future warnings."
+            )
+        )
+
+    @warnfilter.command(name="logword")
+    async def toggle_logging_word(self, ctx, *, show: bool):
+        """Toggles logging the banned word spoken within reason in future filter warnings."""
+        await self.config.guild(ctx.guild).log_filtered_word.set(show)
+        await ctx.send(
+            (
+                "Filtered words are now being shown within logs in future warnings."
+                if show
+                else "Filtered words are not being shown within logs in future warnings."
             )
         )
 
@@ -1381,16 +1447,22 @@ class Warnings(commands.Cog):
         """List current filtered words that will auto warn for."""
         filtered_words = await self.config.guild(ctx.guild).filtered_words()
         if filtered_words:
-            words = ", ".join(filtered_words)
+            words = []
+            i = 0
+            for word in filtered_words:
+                i += 1
+                words.append(f"[{i}] {word}")
+            words = ", ".join(words)
             words = "Filtered in this server:" + "\n\n" + words
             try:
                 for page in pagify(words, delims=[" ", "\n"], shorten_by=8):
                     msg = await ctx.author.send(page)
             except discord.Forbidden:
                 await ctx.maybe_send_embed("I can't send direct messages to you.")
-            await ctx.maybe_send_embed(
-                f"I DM'd you the list. Click here to jump to the list of filtered words.\n<{msg.jump_url}>"
-            )
+            else:
+                await ctx.maybe_send_embed(
+                    f"I DM'd you the list. Click here to jump to the list of filtered words.\n<{msg.jump_url}>"
+                )
         else:
             await ctx.maybe_send_embed(
                 "There are no current filtered words that trigger auto warning."
@@ -1438,12 +1510,16 @@ class Warnings(commands.Cog):
                 break
         # Keeps looping through dict and keeps highest delay at or before num_warnings
         # If num_warnings is 3 and highest delay set is 2 weeks for 2 warnings, will retain 2 warnings for all num_warnings past or equal to 2
-        return seconds
+        return int(seconds)
 
     async def queueUnwarn(self, ctx, user, warning, forced_delay=None):
         autounwarn_enabled = await self.config.guild(ctx.guild).autounwarn_enabled()
         if not autounwarn_enabled:
-            return
+            return False, "Autounwarn Disabled in guild"
+
+        warning = await self.get_user_warning(user, id=warning["id"])
+        if not warning:
+            return False, "Warning not found"
 
         queued = self.unwarn_tasks.get(user.id)  # {warning_id : task}
         if forced_delay is None:
@@ -1453,12 +1529,11 @@ class Warnings(commands.Cog):
         else:
             seconds = forced_delay
         if seconds is None:
-            return
+            return False, "Seconds is None"
 
         if not queued:
             self.unwarn_tasks[user.id] = {}
             queued = self.unwarn_tasks[user.id]
-            warning = await self.get_user_warning(user, id=warning["id"])
             task = asyncio.ensure_future(self.autoUnwarn(ctx, seconds, user, warning))
             queued[warning["id"]] = task
             # await self.track_warning(warning)
@@ -1522,6 +1597,7 @@ class Warnings(commands.Cog):
                 warning["unwarn"] = None
             except (IndexError, ValueError):
                 pass
+            return
         current_point_count = await member_settings.total_points()
         if ctx is not None:
             await warning_points_remove_check(self.config, ctx, user, current_point_count)
@@ -1554,7 +1630,9 @@ class Warnings(commands.Cog):
 
         filtered_words = await self.config.guild(message.guild).filtered_words()
         if filtered_words:
+            i = 0
             for word in filtered_words:
+                i += 1
                 if word in message.content.lower():
                     try:
                         await message.delete()
@@ -1566,16 +1644,21 @@ class Warnings(commands.Cog):
                         current_point_count = await member_settings.total_points()
                         warn_amount = await self.config.guild(message.guild).filter_warn_amount()
                         show_word = await self.config.guild(message.guild).show_filtered_word()
+                        log_word = await self.config.guild(message.guild).log_filtered_word()
                         warning_to_add = await self.create_warning(
                             ctx,
                             user,
                             points=warn_amount,
-                            description=f"Using filtered word {(': ||' + word + '||' if show_word else '')}.",
+                            description=f"Using filtered word {(f': [{i}] ||{word}||.' if show_word else f'[{i}]')}.",
                             mod=message.guild.me.id,
                         )
-                        await self.logWarning(
-                            message.guild, WarningType.WARN, user, warning_to_add
-                        )
+                        warning_copy = warning_to_add.copy()
+                        if log_word:
+                            warning_copy[
+                                "description"
+                            ] = f"Using filtered word : [{i}] ||{word}||."
+
+                        await self.logWarning(message.guild, WarningType.WARN, user, warning_copy)
 
                         async with member_settings.warnings() as user_warnings:
                             user_warnings.append(warning_to_add)
@@ -1599,8 +1682,6 @@ class Warnings(commands.Cog):
                             )
                         except discord.HTTPException:
                             pass
-                        except discord.Forbidden:
-                            pass
                         try:
                             await message.channel.send(
                                 _(
@@ -1610,6 +1691,7 @@ class Warnings(commands.Cog):
                         except discord.Forbidden:
                             pass
                         passed, status = await self.queueUnwarn(ctx, user, warning_to_add)
+                        print("WarnFilter", passed, status)
 
     async def VIP_PingWarn(self, message, user, vip):
         if type(vip) == discord.Role:
@@ -1655,50 +1737,50 @@ class Warnings(commands.Cog):
             pass
         passed, status = await self.queueUnwarn(ctx, user, warning_to_add)
 
-    async def VIP_PingWarn(self, message, user, vip):
-        if type(vip) == discord.Role:
-            vip_role = True
-        else:
-            vip_role = False
-        ctx = await self.bot.get_context(message)
-        member_settings = self.config.member(user)
-        current_point_count = await member_settings.total_points()
-        warn_amount = await self.config.guild(ctx.guild).vip_warn_amount()
-        description = f"Pinging VIP Role {vip}" if vip_role else f"Pinging VIP {vip}"
-        warning_to_add = {
-            "points": warn_amount,
-            "description": description,
-            "mod": message.guild.me.id,
-            "time": datetime.datetime.utcnow().timestamp(),
-        }
-        await self.logWarning(message.guild, "warn", user, warning_to_add)
-        async with member_settings.warnings() as user_warnings:
-            user_warnings.append(warning_to_add)
-        current_point_count += warning_to_add["points"]
-        await member_settings.total_points.set(current_point_count)
-        await warning_points_add_check(self.config, ctx, user, current_point_count)
-        try:
-            em = discord.Embed(
-                title=_("Warning from {user}").format(user=message.guild.me),
-                description=warning_to_add["description"],
-            )
-            em.add_field(name=_("Points"), value=str(warning_to_add["points"]))
-            await user.send(
-                _("You have received a warning in {guild_name}.").format(
-                    guild_name=message.guild.name
-                ),
-                embed=em,
-            )
-        except (discord.HTTPException, discord.Forbidden):
-            pass
-        try:
-            await message.channel.send(
-                _("User __**{user}**__ has been warned for {description}.").format(
-                    user=user, description=warning_to_add["description"]
-                )
-            )
-        except discord.Forbidden:
-            pass
+    # async def VIP_PingWarn(self, message, user, vip):
+    #     if type(vip) == discord.Role:
+    #         vip_role = True
+    #     else:
+    #         vip_role = False
+    #     ctx = await self.bot.get_context(message)
+    #     member_settings = self.config.member(user)
+    #     current_point_count = await member_settings.total_points()
+    #     warn_amount = await self.config.guild(ctx.guild).vip_warn_amount()
+    #     description = f"Pinging VIP Role {vip}" if vip_role else f"Pinging VIP {vip}"
+    #     warning_to_add = {
+    #         "points": warn_amount,
+    #         "description": description,
+    #         "mod": message.guild.me.id,
+    #         "time": datetime.datetime.utcnow().timestamp(),
+    #     }
+    #     await self.logWarning(message.guild, "warn", user, warning_to_add)
+    #     async with member_settings.warnings() as user_warnings:
+    #         user_warnings.append(warning_to_add)
+    #     current_point_count += warning_to_add["points"]
+    #     await member_settings.total_points.set(current_point_count)
+    #     await warning_points_add_check(self.config, ctx, user, current_point_count)
+    #     try:
+    #         em = discord.Embed(
+    #             title=_("Warning from {user}").format(user=message.guild.me),
+    #             description=warning_to_add["description"],
+    #         )
+    #         em.add_field(name=_("Points"), value=str(warning_to_add["points"]))
+    #         await user.send(
+    #             _("You have received a warning in {guild_name}.").format(
+    #                 guild_name=message.guild.name
+    #             ),
+    #             embed=em,
+    #         )
+    #     except (discord.HTTPException, discord.Forbidden):
+    #         pass
+    #     try:
+    #         await message.channel.send(
+    #             _("User __**{user}**__ has been warned for {description}.").format(
+    #                 user=user, description=warning_to_add["description"]
+    #             )
+    #         )
+    #     except discord.Forbidden:
+    #         pass
 
     async def on_message_edit(self, before, after):
         await self.on_message(after)
@@ -1745,3 +1827,281 @@ class Warnings(commands.Cog):
                             user
                         ):  # If message mentions a VIP, warn them
                             await self.VIP_PingWarn(message, message.author, user)
+
+
+# Helper Module
+#############################
+
+
+async def warning_points_add_check(
+    config: Config, ctx: commands.Context, user: discord.Member, points: int
+):
+    """Handles any action that needs to be taken or not based on the points"""
+    guild = ctx.guild
+    guild_settings = config.guild(guild)
+    act = {}
+    async with guild_settings.actions() as registered_actions:
+        for a in registered_actions:
+            # Actions are sorted in decreasing order of points.
+            # The first action we find where the user is above the threshold will be the
+            # highest action we can take.
+            if points >= a["points"]:
+                act = a
+                break
+    if act and act["exceed_command"] is not None:  # some action needs to be taken
+        await create_and_invoke_context(ctx, act["exceed_command"], user)
+
+
+async def warning_points_remove_check(
+    config: Config, ctx: commands.Context, user: discord.Member, points: int
+):
+    guild = ctx.guild
+    guild_settings = config.guild(guild)
+    act = {}
+    async with guild_settings.actions() as registered_actions:
+        for a in registered_actions:
+            if points >= a["points"]:
+                act = a
+            else:
+                break
+    if act and act["drop_command"] is not None:  # some action needs to be taken
+        await create_and_invoke_context(ctx, act["drop_command"], user)
+
+
+async def create_and_invoke_context(
+    realctx: commands.Context, command_str: str, user: discord.Member
+):
+    m = copy(realctx.message)
+    m.content = command_str.format(user=user.mention, prefix=realctx.prefix)
+    fctx = await realctx.bot.get_context(m, cls=commands.Context)
+    try:
+        await realctx.bot.invoke(fctx)
+    except (commands.CheckFailure, commands.CommandOnCooldown):
+        await fctx.reinvoke()
+
+
+def get_command_from_input(bot, userinput: str):
+    com = None
+    orig = userinput
+    while com is None:
+        com = bot.get_command(userinput)
+        if com is None:
+            userinput = " ".join(userinput.split(" ")[:-1])
+        if len(userinput) == 0:
+            break
+    if com is None:
+        return None, _("I could not find a command from that input!")
+
+    check_str = inspect.getsource(checks.is_owner)
+    if any(inspect.getsource(x) in check_str for x in com.checks):
+        # command the user specified has the is_owner check
+        return (
+            None,
+            _("That command requires bot owner. I can't allow you to use that for an action"),
+        )
+    return "{prefix}" + orig, None
+
+
+async def get_command_for_exceeded_points(ctx: commands.Context):
+    """Gets the command to be executed when the user is at or exceeding
+    the points threshold for the action"""
+    await ctx.send(
+        _(
+            "Enter the command to be run when the user **exceeds the points for "
+            "this action to occur.**\n**If you do not wish to have a command run, enter** "
+            "`none`.\n\nEnter it exactly as you would if you were "
+            "actually trying to run the command, except don't put a prefix and "
+            "use `{user}` in place of any user/member arguments\n\n"
+            "WARNING: The command entered will be run without regard to checks or cooldowns. "
+            "Commands requiring bot owner are not allowed for security reasons.\n\n"
+            "Please wait 15 seconds before entering your response."
+        )
+    )
+    await asyncio.sleep(15)
+
+    await ctx.send(_("You may enter your response now."))
+
+    try:
+        msg = await ctx.bot.wait_for(
+            "message", check=MessagePredicate.same_context(ctx), timeout=30
+        )
+    except asyncio.TimeoutError:
+        return None
+    else:
+        if msg.content == "none":
+            return None
+
+    command, m = get_command_from_input(ctx.bot, msg.content)
+    if command is None:
+        await ctx.send(m)
+        return None
+
+    return command
+
+
+async def get_command_for_dropping_points(ctx: commands.Context):
+    """
+    Gets the command to be executed when the user drops below the points
+    threshold
+
+    This is intended to be used for reversal of the action that was executed
+    when the user exceeded the threshold
+    """
+    await ctx.send(
+        _(
+            "Enter the command to be run when the user **returns to a value below "
+            "the points for this action to occur.** Please note that this is "
+            "intended to be used for reversal of the action taken when the user "
+            "exceeded the action's point value.\n**If you do not wish to have a command run "
+            "on dropping points, enter** `none`.\n\nEnter it exactly as you would "
+            "if you were actually trying to run the command, except don't put a prefix "
+            "and use `{user}` in place of any user/member arguments\n\n"
+            "WARNING: The command entered will be run without regard to checks or cooldowns. "
+            "Commands requiring bot owner are not allowed for security reasons.\n\n"
+            "Please wait 15 seconds before entering your response."
+        )
+    )
+    await asyncio.sleep(15)
+
+    await ctx.send(_("You may enter your response now."))
+
+    try:
+        msg = await ctx.bot.wait_for(
+            "message", check=MessagePredicate.same_context(ctx), timeout=30
+        )
+    except asyncio.TimeoutError:
+        return None
+    else:
+        if msg.content == "none":
+            return None
+    command, m = get_command_from_input(ctx.bot, msg.content)
+    if command is None:
+        await ctx.send(m)
+        return None
+
+    return command
+
+
+async def EmbedPaginateWarnsList(
+    self,
+    ctx,
+    items: list,
+    items_per_page: int = 15,
+    title=discord.Embed.Empty,
+    desc=discord.Embed.Empty,
+    author=discord.Embed.Empty,
+    author_url=discord.Embed.Empty,
+    author_icon_url=discord.Embed.Empty,
+    thumbnail=discord.Embed.Empty,
+):
+    maxPage = len(items) // items_per_page + (len(items) % items_per_page > 0)
+    pages = [items[i * items_per_page : (i + 1) * items_per_page] for i in range(maxPage)]
+    count = 0
+    for page in pages:
+        count += 1
+        # print(f"Page {count} : {page}")
+
+    async def showPage(page):
+        em = discord.Embed(title=title, description=desc, color=0x3DF270)
+        em.set_author(name=author, url=author_url, icon_url=author_icon_url)
+        em.set_thumbnail(url=thumbnail)
+        count = (page - 1) * items_per_page
+        total = len(items)
+        for warning in pages[page - 1]:
+            id = warning.get("id", "None")
+            count += 1
+            num_points = warning["points"]
+            time = datetime.datetime.fromtimestamp(warning["time"]).strftime(
+                "%m/%d/%y @ %I:%M %p UTC"
+            )
+            unwarn = (
+                datetime.datetime.fromtimestamp(warning["unwarn"]).strftime(
+                    "%m/%d/%y @ %I:%M %p UTC"
+                )
+                if warning.get("unwarn")
+                else None
+            )
+            mod = ctx.guild.get_member(warning["mod"])
+            if mod is None:
+                mod = discord.utils.get(self.bot.get_all_members(), id=warning["mod"])
+                if mod is None:
+                    mod = await self.bot.get_user_info(warning["mod"])
+            em.add_field(
+                name=f"{count} of {total} | {num_points} point warning | Warning ID (*{id}*)",
+                value=f"Issued by {mod.mention}",
+                inline=False,
+            )
+            em.add_field(
+                name=f"Issued on {time}",
+                value=f'Reason : {warning["description"]}'
+                + (f"\nUnwarning: {unwarn}" if unwarn else "")
+                + "\n------------------------------------------------------------------------------",
+                inline=False,
+            )
+        em.set_footer(
+            text=f"Page {currentPage} out of {maxPage}",
+            icon_url="https://www.clipartmax.com/png/middle/171-1715896_paper-book-icon-textbook-icon.png",
+        )
+        return em
+
+    firstRun = True
+    while True:
+        if firstRun:
+            firstRun = False
+            currentPage = 1
+            em = await showPage(currentPage)
+            msg = await ctx.send(embed=em)
+
+        if maxPage == 1 and currentPage == 1:
+            toReact = ["✅"]
+        elif currentPage == 1:
+            toReact = ["⏩", "✅"]
+        elif currentPage == maxPage:
+            toReact = ["⏪", "✅"]
+        elif currentPage > 1 and currentPage < maxPage:
+            toReact = ["⏪", "⏩", "✅"]
+
+        for reaction in toReact:
+            await msg.add_reaction(reaction)
+
+        def checkReaction(reaction, user):
+            return user == ctx.message.author and str(reaction.emoji).startswith(
+                ("⏪", "⏩", "✅")
+            )  # and reaction.message == msg
+
+        try:
+            result, user = await self.bot.wait_for(
+                "reaction_add", timeout=120, check=checkReaction
+            )
+        except asyncio.TimeoutError:
+            em.set_footer(
+                text=f"Page {currentPage} out of {maxPage}. Timeout. Please reinvoke the command to change pages.",
+                icon_url="https://www.clipartmax.com/png/middle/171-1715896_paper-book-icon-textbook-icon.png",
+            )
+            try:
+                await msg.edit(embed=em)
+                await msg.clear_reactions()
+            except (discord.NotFound, discord.Forbidden):
+                pass
+            break
+        else:
+            try:
+                if "⏪" in str(result.emoji):
+                    # print('Previous Page')
+                    currentPage -= 1
+                    em = await showPage(currentPage)
+                    await msg.edit(embed=em)
+                    await msg.clear_reactions()
+                elif "⏩" in str(result.emoji):
+                    # print('Next Page')
+                    currentPage += 1
+                    em = await showPage(currentPage)
+                    await msg.edit(embed=em)
+                    await msg.clear_reactions()
+                elif "✅" in str(result.emoji):
+                    # print('Close List')
+                    await msg.delete()
+                    await ctx.message.delete()
+                    break
+            except (discord.NotFound, discord.Forbidden):
+                pass
