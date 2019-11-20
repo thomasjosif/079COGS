@@ -29,7 +29,7 @@ class Badge(commands.Cog):
 
     @commands.command(pass_context=True)
     @commands.has_any_role(
-        "Patreon Supporters",
+        "Patreon Supporter",
         "Patreon level - Major Scientist",
         "Patreon level - Zone Manager",
         "Patreon level - Facility Manager",
@@ -38,7 +38,7 @@ class Badge(commands.Cog):
         """
         Issue a patreon badge to a given steamID
         """
-        if ctx.message.channel.id == 472408004587945984:
+        if ctx.message.guild.id == 330432627649544202: #Replaced with NW Guild check
             discord_query_response = await self.query_discord_id(ctx.message.author.id)
             if discord_query_response == "Badge not issued":
                 issue_request = requests.post(
@@ -58,7 +58,7 @@ class Badge(commands.Cog):
 
     @commands.command(pass_context=True)
     @commands.has_any_role(
-        "Patreon Supporters",
+        "Patreon Supporter",
         "Patreon level - Major Scientist",
         "Patreon level - Zone Manager",
         "Patreon level - Facility Manager",
@@ -67,7 +67,7 @@ class Badge(commands.Cog):
         """
         Issue a patreon badge to the user's discord account.
         """
-        if ctx.message.channel.id == 472408004587945984:
+        if ctx.message.guild.id == 330432627649544202: #Replaced with NW Guild check
             discord_query_response = await self.query_discord_id(ctx.message.author.id)
             if discord_query_response == "Badge not issued":
                 str_id = str(ctx.message.author.id)
@@ -89,7 +89,7 @@ class Badge(commands.Cog):
 
     @commands.command(pass_context=True)
     @commands.has_any_role(
-        "Patreon Supporters",
+        "Patreon Supporter",
         "Patreon level - Major Scientist",
         "Patreon level - Zone Manager",
         "Patreon level - Facility Manager",
@@ -98,7 +98,7 @@ class Badge(commands.Cog):
         """
         Revokes a patreon badge from yourself.
         """
-        if ctx.message.channel.id == 472408004587945984:
+        if ctx.message.guild.id == 330432627649544202: #Replaced with NW Guild check
                 await ctx.send(await self.remove_badge(discord_id=str(ctx.message.author.id),
                                                        discord_name=ctx.message.author.name))
 
