@@ -39,6 +39,9 @@ class Badge(commands.Cog):
         Issue a patreon badge to a given steamID
         """
         if ctx.message.guild.id == 330432627649544202: #Replaced with NW Guild check
+            if len(steam_id) != 17 or steam_id[:1] != "7":
+                await ctx.send("Please use a valid SteamID64")
+                return
             discord_query_response = await self.query_discord_id(ctx.message.author.id)
             if discord_query_response == "Badge not issued":
                 issue_request = requests.post(
@@ -47,7 +50,7 @@ class Badge(commands.Cog):
                         "token": await self.config.TOKEN(),
                         "action": "issue",
                         "id": (steam_id+"@steam"),
-                        "badge": "9",
+                        "badge": "10",
                         "info": ctx.message.author.name,
                         "info2": ctx.message.author.id,
                     },
@@ -77,7 +80,7 @@ class Badge(commands.Cog):
                         "token": await self.config.TOKEN(),
                         "action": "issue",
                         "id": (str_id + "@discord"),
-                        "badge": "9",
+                        "badge": "10",
                         "info": ctx.message.author.name,
                         "info2": str_id,
                     },
