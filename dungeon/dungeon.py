@@ -345,6 +345,56 @@ class Dungeon(BaseCog):
         embed = discord.Embed(colour=ctx.guild.me.top_role.colour, description=msg)
         return await ctx.send(embed=embed)
 
+    @dungeon.command()
+    async def countunrolled(self, ctx):
+        """
+        Get a count of all member without a role of any sort
+        """
+        memberCount = 0
+        for member in ctx.guild.members:
+            roles = len(member.roles)
+            if roles == 1: #The @everyone role
+                memberCount += 1
+
+        await ctx.channel.send("There are "+str(memberCount)+" members without any role")
+
+    @dungeon.command()
+    async def roleall(self, ctx):
+        """
+        Adds member role to all members in the guild without dungeon role
+        """
+        # Temporarily disabled
+        await ctx.channel.send("Hard disabled to prevent accidental access")
+        return 
+        # Temporarily disabled
+
+        data = await self.config.guild(ctx.guild).all()
+        dungeon_role_id = data["dungeon_role"]
+        dungeon_role_obj = discord.utils.get(ctx.guild.roles, id=dungeon_role_id)
+        user_role_id = data["user_role"]
+        user_role_obj = discord.utils.get(ctx.guild.roles, id=user_role_id)
+    
+        if dungeon_role_obj == None or user_role_obj == None:
+            await ctx.channel.send("Dungeon or Member role not set properly")        
+            return
+
+        rolesAdded = 0
+        for member in ctx.guild.members:
+            if rolesAdded % 20 == 0 and rolesAdded > 0 : #Print update every 10 roles added
+                await ctx.channel.send("Added "+str(rolesAdded)+" roles")
+
+            hasRole = len(member.roles) > 1 #Every member has @everyone for some reason
+
+            if not hasRole:
+                try:
+                    await member.add_roles(user_role_obj, reason="Adding member role. Requested by "+str(ctx.message.author.id))
+                    rolesAdded += 1
+                except Exception as e:
+                    await ctx.channel.send("Could not apply role for "+str(member.id)+" "+member.display_name+" more info in console")
+                    print(str(e))
+
+        await ctx.channel.send("Added "+str(rolesAdded)+" roles overall")
+
     async def on_member_join(self, member):
         default_avatar = False
         toggle = await self.config.guild(member.guild).toggle()
