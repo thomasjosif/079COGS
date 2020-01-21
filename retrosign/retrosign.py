@@ -14,7 +14,6 @@ import unicodedata
 
 class Retrosign(commands.Cog):
     """Make an 80s retro sign. Originally by Anismash"""
-
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
@@ -37,9 +36,9 @@ class Retrosign(commands.Cog):
             else:
                 return await ctx.send("\N{CROSS MARK} Your line is too long (14 character limit)")
         elif len(texts) == 3:
-            texts[0] = unicodedata.normalize("NFD", texts[0]).encode("ascii", "ignore")
-            texts[0] = texts[0].decode("UTF-8")
-            texts[0] = re.sub(r"[^A-Za-z0-9 ]", "", texts[0])
+            texts[0] = unicodedata.normalize('NFD', texts[0]).encode('ascii', 'ignore')
+            texts[0] = texts[0].decode('UTF-8')
+            texts[0] = re.sub(r'[^A-Za-z0-9 ]', '', texts[0])
             if len(texts[0]) >= 15:
                 return await ctx.send(
                     "\N{CROSS MARK} Your first line is too long (14 character limit)"
@@ -66,7 +65,7 @@ class Retrosign(commands.Cog):
 
         async with ctx.channel.typing():
             async with self.session.post(
-                "http://photofunia.com/effects/retro-wave", data=data
+                "https://photofunia.com/effects/retro-wave", data=data
             ) as response:
                 if response.status == 200:
                     soup = bs(await response.text(), "html.parser")
@@ -78,5 +77,5 @@ class Retrosign(commands.Cog):
                                 image = discord.File(fp=temp_image, filename="image.png")
                                 await ctx.channel.send(file=image)
 
-    def __unload(self):
-        self.session.detach()
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())

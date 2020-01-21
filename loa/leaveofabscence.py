@@ -417,7 +417,7 @@ class LOACog(commands.Cog):
         message = None
         if loa["messageID"] is not None:
             try:
-                message = await loaChannel.get_message(loa["messageID"])
+                message = await loaChannel.fetch_message(loa["messageID"])
             except discord.NotFound:
                 pass
         try:
@@ -523,7 +523,7 @@ class LOACog(commands.Cog):
                 channel = self.bot.get_channel(loa["ctxChannelID"])
                 loaChannel = self.bot.get_channel(await self.config.guild(guild).loaChannel())
                 try:
-                    message = await loaChannel.get_message(loa["messageID"])
+                    message = await loaChannel.fetch_message(loa["messageID"])
                 except discord.NotFound:  # If LOA not found in LoaChannel, assume it was deleted by management and end LOA.
                     await self.cancelLOA(guild, loa)
                     continue

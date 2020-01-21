@@ -1023,32 +1023,33 @@ class Warnings(commands.Cog):
                             datetime.datetime.fromtimestamp(warning["unwarn"]).strftime(
                                 "%m/%d/%y @ %I:%M %p UTC"
                             )
-                            if warning["unwarn"]
-                            else None
-                        )
-                        if mod is None:
-                            mod = discord.utils.get(self.bot.get_all_members(), id=warning["mod"])
-                            if mod is None:
-                                mod = await self.bot.get_user_info(warning["mod"])
-                        msg += _(
-                            "{warn_num} | {num_points} point warning issued by {user} on {time} for "
-                            "{description} {unwarn}\n"
-                        ).format(
-                            warn_num=f"{user_warnings.index(warning) + 1} of {len(user_warnings)} ({id})",
-                            num_points=warning["points"],
-                            user=mod,
-                            time=datetime.datetime.fromtimestamp(warning["time"]).strftime(
-                                "%m/%d/%y @ %I:%M %p UTC"
-                            ),
-                            description=warning["description"],
-                            unwarn=f"| Unwarning at {unwarn}" if unwarn else "",
-                        )
-                    await ctx.send_interactive(
-                        pagify(msg, shorten_by=58),
-                        box_lang=_("Warnings for {user} | Total Points {total_points}").format(
-                            user=user, total_points=total_points
-                        ),
+                        if warning["unwarn"]
+                        else None
                     )
+                    if mod is None:
+                        mod = discord.utils.get(self.bot.get_all_members(), id=warning["mod"])
+                        if mod is None:
+                            mod = await self.bot.get_user_info(warning["mod"])
+                    msg += _(
+                        "{warn_num} | {num_points} point warning issued by {user} on {time} for "
+                        "{description} {unwarn}\n"
+                    ).format(
+                        warn_num=f"{user_warnings.index(warning) + 1} of {len(user_warnings)} ({id})",
+                        num_points=warning["points"],
+                        user=mod,
+                        time=datetime.datetime.fromtimestamp(warning["time"]).strftime(
+                            "%m/%d/%y @ %I:%M %p UTC"
+                        ),
+                        description=warning["description"],
+                        unwarn=f"| Unwarning at {unwarn}" if unwarn else "",
+                    )
+                    await ctx.send_interactive(
+                        pagify(msg, delims=("\n\n", "\n"),
+                            box_lang=_("Warnings for {user}").format(user=user),
+                            shorten_by=58, priority=True, escape_mass_mentions=True),
+                        
+                    )
+    
 
     @commands.command()
     @commands.guild_only()
@@ -2053,20 +2054,20 @@ async def EmbedPaginateWarnsList(
             msg = await ctx.send(embed=em)
 
         if maxPage == 1 and currentPage == 1:
-            toReact = ["✅"]
+            toReact = ["\N{WHITE HEAVY CHECK MARK}"]
         elif currentPage == 1:
-            toReact = ["⏩", "✅"]
+            toReact = ["\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE}", "\N{WHITE HEAVY CHECK MARK}"]
         elif currentPage == maxPage:
-            toReact = ["⏪", "✅"]
+            toReact = ["\N{BLACK LEFT-POINTING DOUBLE TRIANGLE}", "\N{WHITE HEAVY CHECK MARK}"]
         elif currentPage > 1 and currentPage < maxPage:
-            toReact = ["⏪", "⏩", "✅"]
+            toReact = ["\N{BLACK LEFT-POINTING DOUBLE TRIANGLE}", "\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE}", "\N{WHITE HEAVY CHECK MARK}"]
 
         for reaction in toReact:
             await msg.add_reaction(reaction)
 
         def checkReaction(reaction, user):
             return user == ctx.message.author and str(reaction.emoji).startswith(
-                ("⏪", "⏩", "✅")
+                ("\N{BLACK LEFT-POINTING DOUBLE TRIANGLE}", "\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE}", "\N{WHITE HEAVY CHECK MARK}")
             )  # and reaction.message == msg
 
         try:
@@ -2086,19 +2087,19 @@ async def EmbedPaginateWarnsList(
             break
         else:
             try:
-                if "⏪" in str(result.emoji):
+                if "\N{BLACK LEFT-POINTING DOUBLE TRIANGLE}" in str(result.emoji):
                     # print('Previous Page')
                     currentPage -= 1
                     em = await showPage(currentPage)
                     await msg.edit(embed=em)
                     await msg.clear_reactions()
-                elif "⏩" in str(result.emoji):
+                elif "\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE}" in str(result.emoji):
                     # print('Next Page')
                     currentPage += 1
                     em = await showPage(currentPage)
                     await msg.edit(embed=em)
                     await msg.clear_reactions()
-                elif "✅" in str(result.emoji):
+                elif "\N{WHITE HEAVY CHECK MARK}" in str(result.emoji):
                     # print('Close List')
                     await msg.delete()
                     await ctx.message.delete()

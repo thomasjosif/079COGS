@@ -392,3 +392,15 @@ class Admin(commands.Cog):
 
 
 # endregion
+
+    @commands.command()
+    @checks.admin_or_permissions(manage_roles=True)
+    async def superping(self, ctx: commands.Context, role: discord.Role):
+        await ctx.message.delete()
+        try:
+            await role.edit(mentionable=True)
+        except:
+            await ctx.channel.send("I don't have permissions to edit that role")
+            return
+        await ctx.channel.send(role.mention)
+        await role.edit(mentionable=False)
