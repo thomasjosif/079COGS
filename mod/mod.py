@@ -410,6 +410,11 @@ class Mod(commands.Cog):
             return
         audit_reason = get_audit_reason(author, reason)
         try:
+            await user.send(f"You have been kicked from {guild} due to an excess of warnings or poor behaviour.")
+        except discord.HTTPException:
+            msg = None
+            
+        try:
             await guild.kick(user, reason=audit_reason)
             log.info("{}({}) kicked {}({})".format(author.name, author.id, user.name, user.id))
         except discord.errors.Forbidden:
@@ -417,7 +422,7 @@ class Mod(commands.Cog):
         except Exception as e:
             print(e)
         else:
-            await ctx.send(_("Done. That felt good."))
+            await ctx.send(_(f"{user} contained successfully. Containment unit: {author}"))
 
         try:
             await modlog.create_case(
@@ -450,12 +455,20 @@ class Mod(commands.Cog):
 
         If days is not a number, it's treated as the first word of the reason.
         Minimum 0 days, maximum 7. Defaults to 0."""
+        guild = ctx.guild
+        author = ctx.author
+        try: #Dont want DM blocking to cancel a ban!
+            await user.send(f"You have been banned from {guild} for egregious behaviour.")
+                            
+        except discord.HTTPException:
+            msg = None
+                            
         result = await self.ban_user(
             user=user, ctx=ctx, days=days, reason=reason, create_modlog_case=True
         )
 
         if result is True:
-            await ctx.send(_("Done. It was about time."))
+            await ctx.send(_(f"{user} successfully terminated. Termination unit: {author}"))
         elif isinstance(result, str):
             await ctx.send(result)
 
@@ -621,7 +634,7 @@ class Mod(commands.Cog):
         except discord.HTTPException:
             await ctx.send(_("Something went wrong while banning"))
         else:
-            await ctx.send(_("Done. Enough chaos for now"))
+            await ctx.send(_("Done. Enough chaos... for now."))
 
         try:
             await modlog.create_case(
@@ -734,13 +747,10 @@ class Mod(commands.Cog):
         click the user and select 'Copy ID'."""
         guild = ctx.guild
         author = ctx.author
-        user = await self.bot.get_user_info(user_id)
-        if not user:
-            await ctx.send(_("Couldn't find a user with that ID!"))
-            return
         audit_reason = get_audit_reason(ctx.author, reason)
         bans = await guild.bans()
         bans = [be.user for be in bans]
+        user = discord.utils.get(bans, id=user_id)
         if user not in bans:
             await ctx.send(_("It seems that user isn't banned!"))
             return
